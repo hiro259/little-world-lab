@@ -1,10 +1,8 @@
 import * as THREE from 'three';
 import { Input } from './Input.js';
+import { OrbitCamera } from './OrbitCamera.js';
 import { Player } from '../player/Player.js';
 import { World } from '../world/World.js';
-
-const CAMERA_OFFSET = new THREE.Vector3(8.5, 8.8, 12.5);
-const CAMERA_FOCUS_HEIGHT = 1.05;
 
 export class Game {
   constructor(container) {
@@ -47,10 +45,8 @@ export class Game {
     this.scene.add(this.player.group);
     this.clock = new THREE.Clock();
 
-    this.cameraForward = new THREE.Vector3(-CAMERA_OFFSET.x, 0, -CAMERA_OFFSET.z).normalize();
-    this.cameraRight = new THREE.Vector3(-this.cameraForward.z, 0, this.cameraForward.x);
-    this.camera.position.copy(CAMERA_OFFSET);
-    this.camera.lookAt(0, CAMERA_FOCUS_HEIGHT, 0);
+    this.cameraOrbit = new OrbitCamera(this.camera);
+    this.cameraOrbit.follow(0, this.player.group.position, true);
 
     this.onResize = this.resize.bind(this);
     this.onFrame = this.frame.bind(this);
@@ -80,19 +76,17 @@ export class Game {
     this.rafId = requestAnimationFrame(this.onFrame);
     const dt = Math.min(this.clock.getDelta(), 0.05);
 
+    this.cameraOrbit.rotate(dt, this.input.getCameraOrbit());
+
     this.player.update(
       dt,
       this.input.getMovement(),
-      this.cameraForward,
-      this.cameraRight,
+      this.cameraOrbit.forward,
+      this.cameraOrbit.right,
       this.world.limit,
     );
 
-    const targetPosition = this.player.group.position.clone().add(CAMERA_OFFSET);
-    this.camera.position.lerp(targetPosition, 1 - Math.exp(-5 * dt));
-    const lookAt = this.player.group.position.clone();
-    lookAt.y += CAMERA_FOCUS_HEIGHT;
-    this.camera.lookAt(lookAt);
+    this.cameraOrbit.follow(dt, this.player.group.position);
 
     this.world.update(dt, { player: this.player, camera: this.camera, world: this.world });
     this.renderer.render(this.scene, this.camera);
