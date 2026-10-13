@@ -76,7 +76,19 @@ export class Game {
     this.rafId = requestAnimationFrame(this.onFrame);
     const dt = Math.min(this.clock.getDelta(), 0.05);
 
-    this.cameraOrbit.rotate(dt, this.input.getCameraOrbit());
+    const switchingPerspective = this.cameraOrbit.isFirstPerson !== this.input.isFirstPerson;
+    if (switchingPerspective) {
+      this.cameraOrbit.setFirstPerson(this.input.isFirstPerson);
+      // Hide the character mesh when the camera is inside its head, but keep
+      // the small shadow on the ground.
+      this.player.avatar.visible = !this.input.isFirstPerson;
+    }
+
+    if (this.input.isFirstPerson) {
+      this.cameraOrbit.look(dt, this.input.getPOVLook());
+    } else {
+      this.cameraOrbit.rotate(dt, this.input.getCameraOrbit());
+    }
 
     this.player.update(
       dt,
@@ -86,7 +98,7 @@ export class Game {
       this.world.limit,
     );
 
-    this.cameraOrbit.follow(dt, this.player.group.position);
+    this.cameraOrbit.follow(dt, this.player.group.position, switchingPerspective);
 
     this.world.update(dt, { player: this.player, camera: this.camera, world: this.world });
     this.renderer.render(this.scene, this.camera);
