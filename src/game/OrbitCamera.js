@@ -37,15 +37,21 @@ export class OrbitCamera {
     this.right.set(Math.cos(heading), 0, -Math.sin(heading));
   }
 
-  setFirstPerson(enabled) {
+  setFirstPerson(enabled, characterFacing = 0) {
     if (this.isFirstPerson === enabled) return;
     this.isFirstPerson = enabled;
     if (enabled) {
-      // Enter facing the same horizontal heading as the third-person camera.
-      this.povYaw = this.yaw;
+      // Avatar's local forward is +Z, while the camera uses -Z as forward.
+      // Match the character's actual facing, not the independently orbiting camera.
+      this.povYaw = characterFacing + Math.PI;
       this.povPitch = 0;
     }
     this.updateDirections();
+  }
+
+  getPOVFacing() {
+    // The avatar faces local +Z; convert the POV camera's -Z-based yaw.
+    return this.povYaw - Math.PI;
   }
 
   rotate(dt, axes) {
