@@ -31,9 +31,12 @@ Controls:
 - **WASD / arrow keys:** walk (relative to camera direction).
 - **Shift + ← / →:** rotate camera left / right around the player.
 - **Shift + ↑ / ↓:** raise / lower the camera viewing angle (with safe angle limits).
+- **Ctrl (press once):** toggle first-person Point of View (POV) mode on/off. Release Ctrl before using the arrows; Ctrl+arrows can trigger macOS desktop shortcuts.
+- **POV mode, ← / →:** look left/right; **↑ / ↓:** look up/down (with pitch limits).
+- **POV mode, WASD:** walk relative to the viewing direction. Arrow keys look around rather than walking.
 - Click the **操作方法** panel to collapse it into a small button; click again to expand.
 
-The camera continues to follow the character while orbiting. Refreshing resets the initial viewing angle.
+The camera continues to follow the character while orbiting. In POV mode the camera moves to the character's eye level and hides the avatar (so the head does not block the view); pressing Ctrl again restores the third-person camera. Refreshing resets the initial viewing angle.
 
 ## Build
 
@@ -61,8 +64,8 @@ No environment variables or server-side components are needed. Cloudflare setup 
       style.css                 HUD and responsive canvas styling
       game/
         Game.js                 Three.js renderer, animation loop
-        OrbitCamera.js          Player-relative orbit and camera follow
-        Input.js                WASD movement and Shift+arrows orbit input
+        OrbitCamera.js          Player-relative orbit, camera follow, and POV look
+        Input.js                WASD movement, Shift orbit, and Ctrl POV toggle
       player/
         Player.js               Character mesh, movement and walk animation
       world/
