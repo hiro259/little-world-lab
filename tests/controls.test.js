@@ -83,7 +83,7 @@ test('camera orbits around the player, updates walking directions, and limits pi
   assert.ok(Math.abs(camera.position.z - 12.5) < 1e-6);
 
   orbit.rotate(0.5, { x: 1, y: 0 });
-  assert.ok(orbit.yaw > initialYaw);
+  assert.ok(orbit.yaw < initialYaw);
   assert.ok(Math.abs(orbit.forward.dot(orbit.right)) < 1e-10);
   assert.ok(Math.abs(orbit.forward.length() - 1) < 1e-10);
 
@@ -182,8 +182,9 @@ test('POV camera sits at eye level, looks in four directions and returns to orbi
   assert.deepEqual(camera.position.toArray(), [2, 1.55, -3]);
   assert.ok(camera.getWorldDirection(new THREE.Vector3()).dot(orbit.forward) > 0.999999);
 
+  const initialPOVYaw = orbit.povYaw;
   orbit.look(0.5, { x: 1, y: 0 });
-  assert.ok(orbit.povYaw > originalYaw);
+  assert.ok(orbit.povYaw < initialPOVYaw);
   assert.equal(orbit.yaw, originalYaw, 'third-person orbit retains its angle');
   assert.ok(orbit.forward.length() > 0.999999);
   orbit.look(100, { x: 0, y: 1 });
@@ -254,4 +255,47 @@ test('POV strafing and backing up do not turn the avatar away from the camera', 
 
   player.update(0.2, { x: 0, y: 1 }, orbit.forward, orbit.right, 20, true);
   assert.equal(player.facing, facing, 'walking forward preserves heading');
+});
+
+test('right arrow turns the POV view RIGHT relative to its previous heading, left turns LEFT', () => {
+  const camera = new THREE.PerspectiveCamera();
+  const orbit = new OrbitCamera(camera);
+  const player = new Player();
+  player.setFacing(THREE.MathUtils.degToRad(37));
+  orbit.setFirstPerson(true, player.facing);
+  orbit.follow(0, player.group.position);
+
+  const originalRight = orbit.right.clone();
+  const yaw = orbit.povYaw;
+
+  orbit.look(0.3, { x: 1, y: 0 });
+  orbit.follow(0, player.group.position);
+  assert.ok(orbit.povYaw < yaw);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).dot(originalRight) > 0.2,
+    'ArrowRight should face the direction that was previously screen-right');
+
+  orbit.look(0.6, { x: -1, y: 0 });
+  orbit.follow(0, player.group.position);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).dot(originalRight) < -0.2,
+    'ArrowLeft should face the direction that was previously screen-left');
+});
+
+test('Shift + right arrow turns the third-person VIEW right (not left)', () => {
+  const camera = new THREE.PerspectiveCamera();
+  const orbit = new OrbitCamera(camera);
+  const position = new THREE.Vector3(0, 0, 0);
+  orbit.follow(0, position, true);
+  const rightBefore = orbit.right.clone();
+  const yawBefore = orbit.yaw;
+
+  orbit.rotate(0.3, { x: 1, y: 0 });
+  orbit.follow(0, position, true);
+  assert.ok(orbit.yaw < yawBefore);
+  assert.ok(orbit.forward.dot(rightBefore) > 0.2,
+    'Shift+ArrowRight should turn the camera heading right');
+
+  orbit.rotate(0.6, { x: -1, y: 0 });
+  orbit.follow(0, position, true);
+  assert.ok(orbit.forward.dot(rightBefore) < -0.2,
+    'Shift+ArrowLeft should turn the camera heading left');
 });
