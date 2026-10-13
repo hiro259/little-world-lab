@@ -18,4 +18,5 @@ jobs:
       # Issue #3 will add a committed lockfile and switch to npm ci.
       - run: npm install --no-audit --no-fund
       - run: npm run check
+      - run: npm test
       - run: npm run build
