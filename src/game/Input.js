@@ -12,11 +12,14 @@ const ARROW_KEYS = {
   right: 'ArrowRight',
 };
 
+const CONTROL_KEYS = ['ControlLeft', 'ControlRight'];
+
 const CONTROLLED_KEYS = new Set([
   ...Object.values(MOVEMENT_KEYS),
   ...Object.values(ARROW_KEYS),
   'ShiftLeft',
   'ShiftRight',
+  ...CONTROL_KEYS,
 ]);
 
 function normalize(x, y) {
@@ -27,12 +30,22 @@ function normalize(x, y) {
 export class Input {
   constructor() {
     this.pressed = new Set();
+    this.isFirstPerson = false;
 
     this.onKeyDown = (event) => {
       if (!CONTROLLED_KEYS.has(event.code)) return;
 
       const tag = event.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return;
+
+      // Ctrl is a toggle, not a held modifier: Ctrl+arrows can be a macOS shortcut.
+      if (CONTROL_KEYS.includes(event.code)) {
+        if (!event.repeat && !this.pressed.has(event.code)) {
+          this.isFirstPerson = !this.isFirstPerson;
+        }
+        this.pressed.add(event.code);
+        return;
+      }
 
       if (event.code.startsWith('Arrow')) event.preventDefault();
       this.pressed.add(event.code);
@@ -56,10 +69,12 @@ export class Input {
   }
 
   getMovement() {
-    // Shift reserves only the arrow keys for camera orbit. WASD keeps working.
+    // In POV, arrows look around and WASD still walks. Outside POV, Shift
+    // reserves arrows for orbiting the camera without blocking WASD.
+    const arrowsMove = !this.isFirstPerson && !this.isCameraMode;
     const down = (direction) =>
       this.pressed.has(MOVEMENT_KEYS[direction])
-      || (!this.isCameraMode && this.pressed.has(ARROW_KEYS[direction]));
+      || (arrowsMove && this.pressed.has(ARROW_KEYS[direction]));
 
     return normalize(
       Number(down('right')) - Number(down('left')),
@@ -68,8 +83,16 @@ export class Input {
   }
 
   getCameraOrbit() {
-    if (!this.isCameraMode) return { x: 0, y: 0 };
+    if (this.isFirstPerson || !this.isCameraMode) return { x: 0, y: 0 };
+    return this.getArrowAxes();
+  }
 
+  getPOVLook() {
+    if (!this.isFirstPerson) return { x: 0, y: 0 };
+    return this.getArrowAxes();
+  }
+
+  getArrowAxes() {
     return normalize(
       Number(this.pressed.has('ArrowRight')) - Number(this.pressed.has('ArrowLeft')),
       Number(this.pressed.has('ArrowUp')) - Number(this.pressed.has('ArrowDown')),
