@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { Input } from '../src/game/Input.js';
 import { OrbitCamera } from '../src/game/OrbitCamera.js';
+import { Player } from '../src/player/Player.js';
 
 function inputHarness() {
   const previousWindow = globalThis.window;
@@ -199,4 +200,58 @@ test('POV camera sits at eye level, looks in four directions and returns to orbi
   assert.equal(orbit.isFirstPerson, false);
   assert.equal(orbit.yaw, originalYaw);
   assert.ok(Math.abs(camera.position.distanceTo(character.clone().add(new THREE.Vector3(0, 1.05, 0))) - orbit.distance) < 1e-7);
+});
+
+test('POV enters in the avatar\'s real forward direction, even after camera orbit', () => {
+  const player = new Player();
+  const camera = new THREE.PerspectiveCamera();
+  const orbit = new OrbitCamera(camera);
+  const bodyForward = new THREE.Vector3(0, 0, 1);
+
+  assert.equal(player.facing, player.avatar.rotation.y, 'initial facing matches mesh');
+  player.setFacing(THREE.MathUtils.degToRad(120));
+  orbit.rotate(1, { x: -1, y: 0 });
+  assert.ok(Math.abs(orbit.yaw - player.facing) > 0.1, 'orbit yaw differs from avatar facing');
+
+  orbit.setFirstPerson(true, player.facing);
+  orbit.follow(0, player.group.position);
+  const avatarForward = bodyForward.clone().applyQuaternion(player.avatar.quaternion);
+  const povForward = camera.getWorldDirection(new THREE.Vector3());
+  assert.ok(avatarForward.distanceTo(povForward) < 1e-8, 'POV must look where avatar faces');
+  assert.ok(orbit.forward.distanceTo(avatarForward) < 1e-8);
+
+  orbit.look(0.5, { x: 1, y: 0 });
+  player.setFacing(orbit.getPOVFacing());
+  orbit.follow(0, player.group.position);
+  const turnedAvatarForward = bodyForward.clone().applyQuaternion(player.avatar.quaternion);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).distanceTo(turnedAvatarForward) < 1e-8);
+  assert.ok(turnedAvatarForward.distanceTo(avatarForward) > 0.1, 'POV look really turns the avatar');
+
+  orbit.setFirstPerson(false);
+  assert.equal(player.facing, player.avatar.rotation.y, 'leaving POV keeps avatar facing');
+  orbit.setFirstPerson(true, player.facing);
+  orbit.follow(0, player.group.position);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).distanceTo(turnedAvatarForward) < 1e-8, 're-entering POV preserves avatar direction');
+});
+
+test('POV strafing and backing up do not turn the avatar away from the camera', () => {
+  const player = new Player();
+  const orbit = new OrbitCamera(new THREE.PerspectiveCamera());
+  player.setFacing(0.8);
+  orbit.setFirstPerson(true, player.facing);
+  orbit.look(0.4, { x: 1, y: 0 });
+  player.setFacing(orbit.getPOVFacing());
+  const facing = player.facing;
+
+  player.update(0.1, { x: 1, y: 0 }, orbit.forward, orbit.right, 20, true);
+  assert.ok(player.group.position.distanceTo(new THREE.Vector3()) > 0.01);
+  assert.equal(player.facing, facing, 'strafing preserves heading');
+  assert.equal(player.avatar.rotation.y, facing);
+
+  player.update(0.2, { x: 0, y: -1 }, orbit.forward, orbit.right, 20, true);
+  assert.equal(player.facing, facing, 'walking backward preserves heading');
+  assert.equal(player.avatar.rotation.y, facing);
+
+  player.update(0.2, { x: 0, y: 1 }, orbit.forward, orbit.right, 20, true);
+  assert.equal(player.facing, facing, 'walking forward preserves heading');
 });
