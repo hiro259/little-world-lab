@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createMushroom } from '../objects/Mushroom.js';
 
 const WORLD_SIZE = 44;
 
@@ -44,6 +45,7 @@ export class World {
     this.createTerrain();
     this.createGrass();
     this.createSky();
+    this.createStarterMushrooms();
   }
 
   createTerrain() {
@@ -126,6 +128,19 @@ export class World {
       const cloud = makeCloud(x, y, z, size);
       this.clouds.push(cloud);
       this.scene.add(cloud);
+    }
+  }
+
+  createStarterMushrooms() {
+    // An intentionally small cluster: only three shoe-sized mushrooms.
+    const mushrooms = [
+      { position: [-2.60, -0.03, 2.00], scale: 1.00, capColor: 0xd96b65 },
+      { position: [-3.13, -0.03, 2.45], scale: 0.86, capColor: 0xc65f68 },
+      { position: [-2.46, -0.03, 2.85], scale: 0.93, capColor: 0xe28b65 },
+    ];
+
+    for (const { position, scale, capColor } of mushrooms) {
+      this.addObject(createMushroom({ capColor, scale }), position);
     }
   }
 
