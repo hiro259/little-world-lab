@@ -28,21 +28,31 @@
       </header>
 
       <footer class="hud hud--bottom">
-        <section class="control-help" aria-label="操作方法">
-          <div class="control-help__label">HOW TO MOVE <span>移動する</span></div>
-          <div class="key-row" aria-hidden="true">
-            <span class="keyboard-key">W</span>
-            <div class="key-row__lower">
-              <span class="keyboard-key">A</span>
-              <span class="keyboard-key">S</span>
-              <span class="keyboard-key">D</span>
-            </div>
-          </div>
-          <div class="control-help__description">
-            <strong>歩いてみよう</strong>
-            <small>WASD / 矢印キー</small>
-          </div>
-        </section>
+        <details class="control-help" open>
+          <summary class="control-help__summary">
+            <span class="control-help__expanded">
+              <span class="control-help__label">HOW TO MOVE <span>移動する</span></span>
+              <span class="control-help__layout">
+                <span class="key-row" aria-hidden="true">
+                  <span class="keyboard-key">W</span>
+                  <span class="key-row__lower">
+                    <span class="keyboard-key">A</span>
+                    <span class="keyboard-key">S</span>
+                    <span class="keyboard-key">D</span>
+                  </span>
+                </span>
+                <span class="control-help__description">
+                  <strong>歩いてみよう</strong>
+                  <small>WASD / 矢印キー：移動</small>
+                  <small>Shift＋← →：カメラを左右回転</small>
+                  <small>Shift＋↑ ↓：カメラの角度変更</small>
+                </span>
+              </span>
+              <span class="control-help__hint">クリックで閉じる <span aria-hidden="true">⌄</span></span>
+            </span>
+            <span class="control-help__collapsed">操作方法 <span aria-hidden="true">⌃</span></span>
+          </summary>
+        </details>
         <div class="prompt">
           <span class="prompt__sparkle" aria-hidden="true">✦</span>
           <div>

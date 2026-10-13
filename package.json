@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "node --check src/main.js && node --check src/game/Game.js && node --check src/game/Input.js && node --check src/player/Player.js && node --check src/world/World.js"
+    "check": "node --check src/main.js && node --check src/game/Game.js && node --check src/game/Input.js && node --check src/game/OrbitCamera.js && node --check tests/controls.test.js && node --check src/player/Player.js && node --check src/world/World.js",
+    "test": "node --test"
   },
   "dependencies": {
     "three": "^0.186.1"

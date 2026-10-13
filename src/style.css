@@ -94,20 +94,34 @@ body { overflow: hidden; }
 .world-label__divider { background: #cee3d8; width: 1px; height: 17px; }
 
 .control-help {
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: 17px;
-  row-gap: 10px;
-  align-items: center;
   background: #ffffffca;
   border: 1px solid #ffffffed;
   border-radius: 23px;
-  padding: 17px 23px;
   box-shadow: 0 12px 36px #6e9b8b2b;
+  pointer-events: auto;
 }
 
+.control-help__summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+  padding: 17px 23px;
+  user-select: none;
+}
+
+.control-help__summary::-webkit-details-marker { display: none; }
+.control-help__summary::marker { content: ""; }
+.control-help__summary:focus-visible { outline: 3px solid #598e78; outline-offset: 3px; border-radius: inherit; }
+.control-help__expanded { display: grid; row-gap: 10px; }
+.control-help__layout { display: flex; align-items: center; gap: 17px; }
+.control-help__hint { font-size: 10px; font-weight: 700; color: #75968a; text-align: right; }
+.control-help__collapsed { display: none; font-size: 13px; font-weight: 800; color: #355e51; }
+.control-help:not([open]) { border-radius: 999px; }
+.control-help:not([open]) .control-help__summary { padding: 12px 19px; }
+.control-help:not([open]) .control-help__expanded { display: none; }
+.control-help:not([open]) .control-help__collapsed { display: inline-flex; align-items: center; gap: 10px; }
+
 .control-help__label {
-  grid-column: 1 / -1;
   color: #638e7e;
   font-weight: 900;
   letter-spacing: .18em;
@@ -167,8 +181,9 @@ body { overflow: hidden; }
   .world-label { padding: 10px 11px; font-size: 9px; gap: 7px; }
   .world-label__divider, .world-label span:last-child { display: none; }
   .hud--bottom { align-items: flex-end; }
-  .control-help { padding: 12px; border-radius: 14px; }
-  .control-help__description { display: none; }
+  .control-help { border-radius: 14px; }
+  .control-help__summary { padding: 12px; }
+  .control-help__description, .control-help__hint { display: none; }
   .control-help__label { font-size: 9px; }
   .prompt { max-width: 185px; gap: 5px; }
   .prompt strong { font-size: 13px; line-height: 1.5; }

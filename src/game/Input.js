@@ -1,29 +1,46 @@
-const KEY_MAP = {
-  KeyW: 'up',
-  ArrowUp: 'up',
-  KeyS: 'down',
-  ArrowDown: 'down',
-  KeyA: 'left',
-  ArrowLeft: 'left',
-  KeyD: 'right',
-  ArrowRight: 'right',
+const MOVEMENT_KEYS = {
+  up: 'KeyW',
+  down: 'KeyS',
+  left: 'KeyA',
+  right: 'KeyD',
 };
+
+const ARROW_KEYS = {
+  up: 'ArrowUp',
+  down: 'ArrowDown',
+  left: 'ArrowLeft',
+  right: 'ArrowRight',
+};
+
+const CONTROLLED_KEYS = new Set([
+  ...Object.values(MOVEMENT_KEYS),
+  ...Object.values(ARROW_KEYS),
+  'ShiftLeft',
+  'ShiftRight',
+]);
+
+function normalize(x, y) {
+  const length = Math.hypot(x, y);
+  return length > 0 ? { x: x / length, y: y / length } : { x: 0, y: 0 };
+}
 
 export class Input {
   constructor() {
     this.pressed = new Set();
 
     this.onKeyDown = (event) => {
-      if (!(event.code in KEY_MAP)) return;
+      if (!CONTROLLED_KEYS.has(event.code)) return;
+
       const tag = event.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return;
-      event.preventDefault();
+
+      if (event.code.startsWith('Arrow')) event.preventDefault();
       this.pressed.add(event.code);
     };
 
     this.onKeyUp = (event) => {
-      if (!(event.code in KEY_MAP)) return;
-      event.preventDefault();
+      if (!CONTROLLED_KEYS.has(event.code)) return;
+      if (event.code.startsWith('Arrow')) event.preventDefault();
       this.pressed.delete(event.code);
     };
 
@@ -34,15 +51,29 @@ export class Input {
     window.addEventListener('blur', this.onBlur);
   }
 
-  getMovement() {
-    const down = (direction) => [...this.pressed].some((code) => KEY_MAP[code] === direction);
-    const x = Number(down('right')) - Number(down('left'));
-    const y = Number(down('up')) - Number(down('down'));
-    const magnitude = Math.hypot(x, y);
+  get isCameraMode() {
+    return this.pressed.has('ShiftLeft') || this.pressed.has('ShiftRight');
+  }
 
-    return magnitude > 0
-      ? { x: x / magnitude, y: y / magnitude }
-      : { x: 0, y: 0 };
+  getMovement() {
+    // Shift reserves only the arrow keys for camera orbit. WASD keeps working.
+    const down = (direction) =>
+      this.pressed.has(MOVEMENT_KEYS[direction])
+      || (!this.isCameraMode && this.pressed.has(ARROW_KEYS[direction]));
+
+    return normalize(
+      Number(down('right')) - Number(down('left')),
+      Number(down('up')) - Number(down('down')),
+    );
+  }
+
+  getCameraOrbit() {
+    if (!this.isCameraMode) return { x: 0, y: 0 };
+
+    return normalize(
+      Number(this.pressed.has('ArrowRight')) - Number(this.pressed.has('ArrowLeft')),
+      Number(this.pressed.has('ArrowUp')) - Number(this.pressed.has('ArrowDown')),
+    );
   }
 
   dispose() {

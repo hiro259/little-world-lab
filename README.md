@@ -26,7 +26,14 @@ No backend, login, multiplayer, or external 3D assets are required.
 
 Open the URL printed by Vite (usually http://localhost:5173/).
 
-Controls: **WASD** or **arrow keys** to walk around. The camera follows the character. Refresh the page to restart.
+Controls:
+
+- **WASD / arrow keys:** walk (relative to camera direction).
+- **Shift + ← / →:** rotate camera left / right around the player.
+- **Shift + ↑ / ↓:** raise / lower the camera viewing angle (with safe angle limits).
+- Click the **操作方法** panel to collapse it into a small button; click again to expand.
+
+The camera continues to follow the character while orbiting. Refreshing resets the initial viewing angle.
 
 ## Build
 
@@ -53,8 +60,9 @@ No environment variables or server-side components are needed. Cloudflare setup 
       main.js                   Initialize game and display startup errors
       style.css                 HUD and responsive canvas styling
       game/
-        Game.js                 Three.js renderer, animation loop, camera
-        Input.js                WASD / arrow input; no game logic
+        Game.js                 Three.js renderer, animation loop
+        OrbitCamera.js          Player-relative orbit and camera follow
+        Input.js                WASD movement and Shift+arrows orbit input
       player/
         Player.js               Character mesh, movement and walk animation
       world/
