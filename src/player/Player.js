@@ -23,7 +23,8 @@ export class Player {
 
     this.velocity = new THREE.Vector3();
     this.targetVelocity = new THREE.Vector3();
-    this.facing = Math.PI;
+    // Keep the starting heading in sync with the avatar's rendered +Z facing.
+    this.facing = 0;
     this.walkPhase = 0;
 
     const skin = new THREE.MeshStandardMaterial({ color: SKIN_COLOR, roughness: 0.94 });
@@ -75,7 +76,12 @@ export class Player {
     this.group.add(shadow);
   }
 
-  update(dt, axes, cameraForward, cameraRight, worldLimit) {
+  setFacing(angle) {
+    this.facing = angle;
+    this.avatar.rotation.y = angle;
+  }
+
+  update(dt, axes, cameraForward, cameraRight, worldLimit, lockFacing = false) {
     this.targetVelocity.copy(cameraForward).multiplyScalar(axes.y);
     this.targetVelocity.addScaledVector(cameraRight, axes.x);
     if (this.targetVelocity.lengthSq() > 0.01) this.targetVelocity.normalize();
@@ -90,11 +96,12 @@ export class Player {
     this.group.position.z = THREE.MathUtils.clamp(this.group.position.z, -worldLimit, worldLimit);
 
     const speed = this.velocity.length();
-    if (speed > 0.12) {
+    // In POV the avatar follows the look direction, not walking velocity:
+    // strafing/backing up must not silently turn the character.
+    if (!lockFacing && speed > 0.12) {
       const desiredFacing = Math.atan2(this.velocity.x, this.velocity.z);
       const turn = Math.atan2(Math.sin(desiredFacing - this.facing), Math.cos(desiredFacing - this.facing));
-      this.facing += turn * (1 - Math.exp(-14 * dt));
-      this.avatar.rotation.y = this.facing;
+      this.setFacing(this.facing + turn * (1 - Math.exp(-14 * dt)));
     }
 
     this.walkPhase += speed * dt * 2.5;

@@ -76,7 +76,24 @@ export class Game {
     this.rafId = requestAnimationFrame(this.onFrame);
     const dt = Math.min(this.clock.getDelta(), 0.05);
 
-    this.cameraOrbit.rotate(dt, this.input.getCameraOrbit());
+    const switchingPerspective = this.cameraOrbit.isFirstPerson !== this.input.isFirstPerson;
+    if (switchingPerspective) {
+      // The third-person camera can orbit independently of the character.
+      // Enter POV from the actual avatar facing instead of the orbit heading.
+      this.cameraOrbit.setFirstPerson(this.input.isFirstPerson, this.player.facing);
+      // Hide the character mesh when the camera is inside its head, but keep
+      // the small shadow on the ground.
+      this.player.avatar.visible = !this.input.isFirstPerson;
+    }
+
+    if (this.input.isFirstPerson) {
+      this.cameraOrbit.look(dt, this.input.getPOVLook());
+      // Turning the POV turns the avatar too, so switching back preserves
+      // the direction the character was looking.
+      this.player.setFacing(this.cameraOrbit.getPOVFacing());
+    } else {
+      this.cameraOrbit.rotate(dt, this.input.getCameraOrbit());
+    }
 
     this.player.update(
       dt,
@@ -84,9 +101,10 @@ export class Game {
       this.cameraOrbit.forward,
       this.cameraOrbit.right,
       this.world.limit,
+      this.input.isFirstPerson,
     );
 
-    this.cameraOrbit.follow(dt, this.player.group.position);
+    this.cameraOrbit.follow(dt, this.player.group.position, switchingPerspective);
 
     this.world.update(dt, { player: this.player, camera: this.camera, world: this.world });
     this.renderer.render(this.scene, this.camera);
