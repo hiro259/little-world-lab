@@ -66,11 +66,13 @@ No environment variables or server-side components are needed. Cloudflare setup 
       player/
         Player.js               Character mesh, movement and walk animation
       world/
-        World.js                Grass island, light decoration, object slots
+        World.js                Grass island, three mushrooms, object slots
+      objects/
+        Mushroom.js             Procedural low-poly mushroom model
 
 ## Adding something to the world
 
-The initial scene deliberately has **no animals, trees, houses, or ponds**. Their addition will be part of the interactive presentation.
+The initial scene contains **just three tiny mushrooms** in one corner of the meadow, and no animals, trees, houses, or ponds. Those larger changes will be part of the interactive presentation.
 
 `World.addObject(item, position)` provides an entry point:
 
