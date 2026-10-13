@@ -57,7 +57,9 @@ export class OrbitCamera {
   rotate(dt, axes) {
     if (this.isFirstPerson || (axes.x === 0 && axes.y === 0)) return;
 
-    this.yaw += axes.x * ORBIT_SPEED * dt;
+    // Positive input (→) turns the VIEW to the right. With forward = -sin(yaw),
+    // yaw must decrease to rotate the heading toward camera-right.
+    this.yaw -= axes.x * ORBIT_SPEED * dt;
     this.pitch = THREE.MathUtils.clamp(
       this.pitch + axes.y * TILT_SPEED * dt,
       MIN_PITCH,
@@ -68,7 +70,8 @@ export class OrbitCamera {
 
   look(dt, axes) {
     if (!this.isFirstPerson || (axes.x === 0 && axes.y === 0)) return;
-    this.povYaw += axes.x * ORBIT_SPEED * dt;
+    // Match conventional first-person controls: → looks right, ← looks left.
+    this.povYaw -= axes.x * ORBIT_SPEED * dt;
     this.povPitch = THREE.MathUtils.clamp(
       this.povPitch + axes.y * TILT_SPEED * dt,
       -POV_MAX_PITCH,
