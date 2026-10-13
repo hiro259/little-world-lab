@@ -1,0 +1,21 @@
+name: Initial smoke build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - feat/issue-1-initial-world
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Issue #3 will add a committed lockfile and switch to npm ci.
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
