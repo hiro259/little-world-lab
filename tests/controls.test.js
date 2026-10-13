@@ -19,8 +19,8 @@ function inputHarness() {
   const input = new Input();
   return {
     input,
-    key(type, code, target = { tagName: 'BODY' }) {
-      listeners.get(type)?.({ code, target, preventDefault() {} });
+    key(type, code, target = { tagName: 'BODY' }, options = {}) {
+      listeners.get(type)?.({ code, target, preventDefault() {}, ...options });
     },
     blur() { listeners.get('blur')?.(); },
     dispose() {
@@ -105,4 +105,98 @@ test('the native help panel starts open and has the requested controls', () => {
   assert.match(html, /control-help__collapsed">操作方法/);
   assert.match(html, /Shift＋← →/);
   assert.match(html, /Shift＋↑ ↓/);
+  assert.match(html, /Ctrl：一人称視点（POV）/);
+  assert.match(html, /POV中 ← →/);
+  assert.match(html, /POV中 ↑ ↓/);
+  assert.match(html, /POV中 WASD/);
+});
+
+test('Ctrl toggles first-person mode once per press; arrows look while WASD walks', () => {
+  const h = inputHarness();
+  try {
+    h.key('keydown', 'ControlLeft');
+    assert.equal(h.input.isFirstPerson, true);
+    h.key('keydown', 'ControlLeft', { tagName: 'BODY' }, { repeat: true });
+    assert.equal(h.input.isFirstPerson, true, 'holding Ctrl must not toggle repeatedly');
+    h.key('keyup', 'ControlLeft');
+    assert.equal(h.input.isFirstPerson, true, 'POV is a toggle, not a held modifier');
+
+    h.key('keydown', 'ArrowUp');
+    assert.deepEqual(h.input.getMovement(), { x: 0, y: 0 });
+    assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 1 });
+    assert.deepEqual(h.input.getCameraOrbit(), { x: 0, y: 0 });
+
+    h.key('keydown', 'KeyW');
+    assert.deepEqual(h.input.getMovement(), { x: 0, y: 1 });
+    h.key('keydown', 'ShiftLeft');
+    assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 1 });
+    assert.deepEqual(h.input.getCameraOrbit(), { x: 0, y: 0 });
+
+    h.key('keyup', 'ArrowUp');
+    h.key('keydown', 'ArrowRight');
+    assert.deepEqual(h.input.getPOVLook(), { x: 1, y: 0 });
+
+    h.key('keyup', 'ShiftLeft');
+    h.key('keyup', 'ArrowRight');
+    h.key('keyup', 'KeyW');
+    h.key('keydown', 'ControlRight');
+    assert.equal(h.input.isFirstPerson, false);
+    assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 0 });
+
+    h.key('keydown', 'ArrowLeft');
+    assert.deepEqual(h.input.getMovement(), { x: -1, y: 0 });
+  } finally {
+    h.dispose();
+  }
+});
+
+test('Ctrl does not toggle POV while typing; losing focus clears held arrows', () => {
+  const h = inputHarness();
+  try {
+    h.key('keydown', 'ControlLeft', { tagName: 'INPUT' });
+    assert.equal(h.input.isFirstPerson, false);
+    h.key('keydown', 'ControlRight', { tagName: 'BODY', isContentEditable: true });
+    assert.equal(h.input.isFirstPerson, false);
+
+    h.key('keydown', 'ControlLeft');
+    h.key('keyup', 'ControlLeft');
+    h.key('keydown', 'ArrowDown');
+    h.blur();
+    assert.equal(h.input.isFirstPerson, true);
+    assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 0 });
+  } finally {
+    h.dispose();
+  }
+});
+
+test('POV camera sits at eye level, looks in four directions and returns to orbit', () => {
+  const camera = new THREE.PerspectiveCamera();
+  const orbit = new OrbitCamera(camera);
+  const character = new THREE.Vector3(2, 0, -3);
+  const originalYaw = orbit.yaw;
+  orbit.setFirstPerson(true);
+  orbit.follow(0, character);
+
+  assert.ok(orbit.isFirstPerson);
+  assert.deepEqual(camera.position.toArray(), [2, 1.55, -3]);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).dot(orbit.forward) > 0.999999);
+
+  orbit.look(0.5, { x: 1, y: 0 });
+  assert.ok(orbit.povYaw > originalYaw);
+  assert.equal(orbit.yaw, originalYaw, 'third-person orbit retains its angle');
+  assert.ok(orbit.forward.length() > 0.999999);
+  orbit.look(100, { x: 0, y: 1 });
+  assert.ok(orbit.povPitch <= THREE.MathUtils.degToRad(80) + 1e-10);
+  orbit.follow(0, character);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).y > 0.9, 'up looks toward the sky');
+  orbit.look(100, { x: 0, y: -1 });
+  assert.ok(orbit.povPitch >= -THREE.MathUtils.degToRad(80) - 1e-10);
+  orbit.follow(0, character);
+  assert.ok(camera.getWorldDirection(new THREE.Vector3()).y < -0.9, 'down looks toward the ground');
+
+  orbit.setFirstPerson(false);
+  orbit.follow(0, character, true);
+  assert.equal(orbit.isFirstPerson, false);
+  assert.equal(orbit.yaw, originalYaw);
+  assert.ok(Math.abs(camera.position.distanceTo(character.clone().add(new THREE.Vector3(0, 1.05, 0))) - orbit.distance) < 1e-7);
 });
