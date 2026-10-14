@@ -161,6 +161,8 @@ body { overflow: hidden; }
 .prompt strong { font-weight: 900; font-size: clamp(16px, 1.55vw, 23px); letter-spacing: .03em; }
 .prompt small { color: #628478; font-weight: 600; font-size: 12px; letter-spacing: .07em; }
 
+.interaction-hint[hidden] { display: none; }
+
 .interaction-hint {
   position: absolute;
   z-index: 2;
