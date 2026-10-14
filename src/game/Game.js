@@ -22,7 +22,7 @@ export class Game {
     this.renderer.toneMappingExposure = 1.40;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.domElement.setAttribute('aria-label', 'Little World Lab の3D草原');
+    this.renderer.domElement.setAttribute('aria-label', 'Little World Lab の3Dワールド');
     this.container.appendChild(this.renderer.domElement);
 
     this.scene.add(new THREE.HemisphereLight(0xeaf8ff, 0x81a783, 2.6));
@@ -115,14 +115,15 @@ export class Game {
       if (action === 'interact') this.interactions.interact();
       else if (action === 'action') this.interactions.action();
     }
+    // Animate world objects first: the carried crab's legs keep moving,
+    // then InteractionController copies that latest pose into the POV model.
+    this.world.update(dt, { player: this.player, camera: this.camera, world: this.world });
     this.interactions.update(dt, this.input.isFirstPerson);
     if (this.interactionHint) {
       const hint = this.interactions.getHint();
       if (this.interactionHint.textContent !== hint) this.interactionHint.textContent = hint;
       this.interactionHint.hidden = !hint;
     }
-
-    this.world.update(dt, { player: this.player, camera: this.camera, world: this.world });
     this.renderer.render(this.scene, this.camera);
   }
 
