@@ -117,6 +117,88 @@ test('holes are restricted to dry sand away from items, other holes and the edge
   assert.equal(world.digAt(18, 18), false, 'once at capacity another hole is rejected');
 });
 
+
+test('digging keeps every original sand color patch visible and follows the carved surface', () => {
+  const { world, scene } = setup();
+  const patches = scene.children.filter((object) => object.name === 'SandPatch');
+  assert.equal(patches.length, 26);
+  assert.equal(world.beachPatches.length, 26);
+  assert.ok(patches.every((patch) => patch.visible), 'patterns are initially visible');
+
+  const originalAppearance = patches.map((patch) => ({
+    color: patch.material.color.getHex(),
+    position: patch.position.clone(),
+    scale: patch.scale.clone(),
+  }));
+
+  const patch = patches.find((item) => world.diggableSand.canDig(
+    item.position.x, item.position.z, world.content.children,
+  ));
+  assert.ok(patch, 'a safely diggable patch is available');
+  const centerX = patch.position.x;
+  const centerZ = patch.position.z;
+  const beforeGeometry = patch.geometry.getAttribute('position');
+  assert.equal(beforeGeometry.getZ(0), 0, 'pattern center starts level with beach');
+  assert.ok(beforeGeometry.count > 400, 'patch is subdivided enough to follow a hole');
+  assert.notEqual(patch.geometry, patches.find((item) => item !== patch).geometry,
+    'each patch has its own independently deformable vertices');
+
+  assert.equal(world.digAt(centerX, centerZ), true);
+  assert.ok(world.getGroundOffsetAt(centerX, centerZ) < -0.2);
+  const afterGeometry = patch.geometry.getAttribute('position');
+  assert.ok(afterGeometry.getZ(0) < -0.18,
+    'the pattern center follows the depression instead of bridging over it');
+
+  for (let i = 0; i < afterGeometry.count; i += 17) {
+    const x = centerX + afterGeometry.getX(i) * patch.scale.x;
+    const z = centerZ - afterGeometry.getY(i) * patch.scale.y;
+    assert.ok(Math.abs(afterGeometry.getZ(i) - world.diggableSand.renderedHeightAt(x, z)) < 1e-5,
+      'colored pattern conforms to the exact rendered terrain triangles');
+  }
+
+  const patchHeight = patch.position.y + afterGeometry.getZ(0);
+  const terrainHeight = world.diggableSand.ground.position.y
+    + world.diggableSand.renderedHeightAt(centerX, centerZ);
+  assert.ok(patchHeight > terrainHeight && patchHeight - terrainHeight < 0.02,
+    'patch stays just above the hollow floor, not covering the excavated hole');
+
+  assert.ok(patches.every((item) => item.visible), 'no patterns are hidden after digging');
+  patches.forEach((item, i) => {
+    assert.equal(item.material.color.getHex(), originalAppearance[i].color);
+    assert.ok(item.position.equals(originalAppearance[i].position));
+    assert.ok(item.scale.equals(originalAppearance[i].scale));
+  });
+
+  const second = patches.find((item) => (
+    Math.hypot(item.position.x - centerX, item.position.z - centerZ) > 4
+    && world.diggableSand.canDig(item.position.x, item.position.z, world.content.children)
+  ));
+  assert.ok(second, 'there is a separate location for a second hole');
+  assert.equal(world.digAt(second.position.x, second.position.z), true);
+  assert.ok(patches.every((item) => item.visible), 'multiple holes never erase sand patterns');
+  assert.ok(patch.geometry.getAttribute('position').getZ(0) < -0.18,
+    'the first colored depression survives a second dig');
+  assert.ok(second.geometry.getAttribute('position').getZ(0) < -0.18,
+    'the second colored depression follows the sand too');
+});
+
+test('digging leaves distant sand patterns unchanged and WORLD 01 untouched', () => {
+  const { world, scene } = setup();
+  const far = scene.children.filter((object) => object.name === 'SandPatch')
+    .find((item) => Math.hypot(item.position.x + 2, item.position.z - 9) > 6);
+  assert.ok(far);
+  const vertices = far.geometry.getAttribute('position');
+  const original = vertices.array.slice();
+  assert.equal(world.digAt(-2, 9), true);
+  assert.deepEqual(vertices.array, original, 'distant patch vertices remain untouched');
+  assert.ok(far.visible);
+
+  const meadow = new World(new THREE.Scene(), '01');
+  assert.equal(meadow.digAt(-2, 9), false);
+  assert.deepEqual(meadow.beachPatches, []);
+  assert.equal(meadow.scene.children.filter((item) => item.name === 'SandPatch').length, 0);
+});
+
 test('A picks up the shovel, S digs once and animates down, and A puts it on the ground', () => {
   const { world, player, camera, interaction } = setup();
   const shovel = world.content.children.find((item) => item.name === 'Shovel');
