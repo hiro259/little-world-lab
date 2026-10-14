@@ -5,9 +5,13 @@ const PICKUP_DISTANCE = 1.65;
 const TOSS_DURATION = 0.38;
 const SWING_DURATION = 0.62;
 const LABELS = { mushroom: 'キノコ', flower: '花' };
-const HELD_ITEM_POSITION = new THREE.Vector3(0.28, -0.57, 0.14);
+// Relative to the right shoulder: sit the item at the hand, a little forward
+// and to the side of the head. The arm's local -Y points ahead when raised.
+const HELD_ITEM_POSITION = new THREE.Vector3(0.08, -0.49, -0.07);
 const HELD_CAMERA_POSITION = new THREE.Vector3(0.65, -0.66, -1.25);
-const CARRY_ARM_ANGLE = 0.22;
+// The arm is modeled hanging along -Y. A -90-degree X rotation points it
+// straight forward along the character's local +Z direction.
+const CARRY_ARM_ANGLE = -Math.PI / 2;
 
 /**
  * Small, extensible pickup controller. New objects can opt in by setting
@@ -60,9 +64,13 @@ export class InteractionController {
     object.rotation.set(0, 0, 0);
     this.cameraItem.clear();
     const preview = object.clone(true);
+    // The carried object's offset is relative to the avatar's hand, not POV.
+    preview.position.set(0, 0, 0);
+    preview.rotation.set(0, 0, 0);
     preview.scale.multiplyScalar(1.9);
     this.cameraItem.add(preview);
     this.swingRemaining = 0;
+    this.player.rightArm.rotation.x = CARRY_ARM_ANGLE;
     this.player.rightArm.rotation.z = 0;
     this.cameraItem.rotation.z = 0;
     return true;
@@ -120,13 +128,12 @@ export class InteractionController {
         ? Math.sin(progress * Math.PI * 6) * Math.sin(progress * Math.PI)
         : 0;
 
-      // No Z-axis arm rotation: sideways swinging crossed in front of the face.
-      // Small X-axis pitching + vertical translation keeps the held item
-      // on the avatar's right-hand side throughout the movement.
-      this.player.rightArm.rotation.x = CARRY_ARM_ANGLE + shake * 0.19;
+      // Hold the entire right arm straight out in front, including when
+      // walking. S adds only a gentle up/down wrist-level bob about that pose.
+      // Never swing in Z or across the character's face.
+      this.player.rightArm.rotation.x = CARRY_ARM_ANGLE + shake * 0.16;
       this.player.rightArm.rotation.z = 0;
       this.held.position.copy(HELD_ITEM_POSITION);
-      this.held.position.y += shake * 0.14;
 
       // POV uses the same up/down rhythm; never roll the item sideways.
       this.cameraItem.position.copy(HELD_CAMERA_POSITION);
