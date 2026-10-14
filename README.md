@@ -42,7 +42,7 @@ Controls:
 - **Shift + ↑ / ↓:** change the camera angle / look up and down (without walking).
 - **Ctrl (press once):** toggle first-person POV on/off; release it before using arrows to avoid macOS shortcuts.
 - **A:** pull up a nearby mushroom or flower, then press again while holding it to toss it gently and plant it in a new spot.
-- **S:** shake the held item. A custom `userData.onAction` handler can implement object-specific actions later.
+- **S:** swing the held item **up and down** while keeping it to the right of the face. Mushrooms and flowers share the `verticalShake` action. The action can be assigned by ID or overridden per item.
 - **W / D:** reserved for future actions; no current effect.
 - Click the **操作方法** panel to collapse it into a small button; click again to expand.
 
@@ -76,7 +76,8 @@ No environment variables or server-side components are needed. Cloudflare setup 
         Game.js                 Three.js renderer, animation loop
         OrbitCamera.js          Player-relative orbit, camera follow, and POV look
         Input.js                Arrow movement, Shift look, Ctrl POV, A/S actions
-        InteractionController.js Pick up, carry, shake and toss-to-plant behaviors
+        InteractionController.js Pick up, carry, vertical shake and replant behaviors
+        HeldActions.js           Shared S-key action registry and per-item overrides
       player/
         Player.js               Character mesh, movement and walk animation
       world/
@@ -97,7 +98,27 @@ const mesh = new THREE.Group();
 world.addObject(mesh, [3, 0, -2]);
 ```
 
-A pickable item's root Object3D has `userData.pickupType` and may define `userData.onAction(controller)` for a special S-key action. Items are picked up and replanted by `InteractionController`. Grass stays a single efficient `InstancedMesh`, and is not pickable.
+A pickable item's root Object3D sets `userData.pickupType`. S-key actions are configured individually but may share implementations:
+
+```js
+// Both built-in flowers and mushrooms use the same up/down shaking action.
+item.userData.actionId = 'verticalShake';
+
+// For a new reusable action, register an ID once, then assign that ID to
+// any item that should have the behavior.
+import { registerHeldAction } from './game/HeldActions.js';
+registerHeldAction('sparkle', (controller, item) => {
+  // Implement a custom effect using the held item and game context.
+});
+item.userData.actionId = 'sparkle';
+
+// Optional one-off action for an individual item, takes precedence over ID:
+item.userData.onAction = (controller, item) => {
+  // Perform this item's unique action.
+};
+```
+
+Items are picked up and replanted by `InteractionController`. Grass stays a single efficient `InstancedMesh`, and is not pickable.
 
 It also accepts an object of shape `{ mesh, update(delta, context) }` for simple animation/behavior. The game loop calls the registered item's `update` method every frame. Keep each new animal or prop in its own file under `src/objects/` when adding features (Issue #6 will expand this into a reusable template).
 
