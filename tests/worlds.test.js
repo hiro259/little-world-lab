@@ -94,7 +94,7 @@ test('the world badge is a keyboard-operable button with the correct URL switch'
   assert.match(html, /<button class="world-label" id="world-switch" type="button"/);
   assert.match(html, /data-world-number/);
   assert.match(html, /data-world-name/);
-  assert.match(main, /searchParams\.get\('world'\) === '02'/);
+  assert.match(main, /URLSearchParams\(window\.location\.search\)\.get\('world'\) === '02'/);
   assert.match(main, /searchParams\.set\('world', nextWorldId\)/);
   assert.match(main, /searchParams\.delete\('world'\)/);
   assert.match(main, /new Game\(container, worldId\)/);
