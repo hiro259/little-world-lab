@@ -44,13 +44,49 @@ export class DiggableSand {
     const original = ground.geometry;
     const geometry = new THREE.PlaneGeometry(SIZE_X, SIZE_Z, GRID_X, GRID_Z);
     const positions = geometry.getAttribute('position');
-    const colors = new Float32Array(positions.count * 3);
-    colors.fill(1);
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(positions.count * 3), 3));
     ground.geometry = geometry;
     original.dispose();
     ground.material.vertexColors = true;
     ground.material.needsUpdate = true;
+
+    // A colored sand pattern is painted onto the SAME vertices that dig
+    // later deforms. Retaining an immutable base palette ensures new holes
+    // change only relief/shadow, never erase the sand motif.
+    this.baseColors = new Float32Array(positions.count * 3);
+    this.patterns = [];
+    this.setColorPatches([]);
+  }
+
+  setColorPatches(patches) {
+    // Three.js vertex colors must be LINEAR RGB. Color.setHex converts the
+    // supplied sRGB hex to linear, matching the previous materials.
+    this.patterns = patches.map(({ x, z, radiusX, radiusZ, color }) => ({
+      x, z, radiusX, radiusZ, color: new THREE.Color(color),
+    }));
+    const vertices = this.ground.geometry.getAttribute('position');
+    const base = new THREE.Color(0xe7d3ac);
+    const ink = new THREE.Color();
+    for (let i = 0; i < vertices.count; i++) {
+      const x = vertices.getX(i);
+      const z = CENTER_Z - vertices.getY(i);
+      ink.copy(base);
+      for (const patch of this.patterns) {
+        const distance = Math.hypot(
+          (x - patch.x) / patch.radiusX,
+          (z - patch.z) / patch.radiusZ,
+        );
+        if (distance >= 1) continue;
+        // Preserve the original patch footprint with just a small soft
+        // transition at the edge, avoiding jagged 0.25-unit grid outlines.
+        const coverage = smoothstep((1 - distance) / 0.12);
+        ink.lerp(patch.color, coverage);
+      }
+      this.baseColors[i * 3] = ink.r;
+      this.baseColors[i * 3 + 1] = ink.g;
+      this.baseColors[i * 3 + 2] = ink.b;
+    }
+    this.rebuildGeometry();
   }
 
   /** Offset relative to the original level surface. */
@@ -61,6 +97,34 @@ export class DiggableSand {
       if (d < HOLE_RADIUS) result += holeShape(d).height;
     }
     return result;
+  }
+
+  /**
+   * Interpolate the ACTUAL triangulated ground surface under a decorative
+   * sand patch. Sampling the rendered triangles (instead of the smooth
+   * analytic bowl) prevents the patch from crossing through the terrain
+   * or covering the hollow with a flat colored lid.
+   *
+   * PlaneGeometry vertices are ordered by rows from z=0 to z=22,
+   * with the diagonal running from each cell's bottom-left to top-right.
+   */
+  renderedHeightAt(x, z) {
+    const xGrid = THREE.MathUtils.clamp((x + SIZE_X / 2) * GRID_X / SIZE_X, 0, GRID_X);
+    const zGrid = THREE.MathUtils.clamp(z * GRID_Z / SIZE_Z, 0, GRID_Z);
+    const ix = Math.min(Math.floor(xGrid), GRID_X - 1);
+    const iz = Math.min(Math.floor(zGrid), GRID_Z - 1);
+    const fx = xGrid - ix;
+    const fz = zGrid - iz;
+    const vertices = this.ground.geometry.getAttribute('position');
+    const index = iz * (GRID_X + 1) + ix;
+    const a = vertices.getZ(index);                 // top-left
+    const b = vertices.getZ(index + GRID_X + 1);    // bottom-left
+    const c = vertices.getZ(index + GRID_X + 2);    // bottom-right
+    const d = vertices.getZ(index + 1);             // top-right
+    if (fx + fz <= 1) {
+      return a * (1 - fx - fz) + b * fz + d * fx;
+    }
+    return b * (1 - fx) + c * (fx + fz - 1) + d * (1 - fz);
   }
 
   canDig(x, z, objects = []) {
@@ -104,7 +168,12 @@ export class DiggableSand {
       }
       vertices.setZ(i, height); // local +Z becomes WORLD +Y after rotation
       const shade = Math.max(0.37, 1 - darkness);
-      colors.setXYZ(i, shade, shade, shade);
+      colors.setXYZ(
+        i,
+        this.baseColors[i * 3] * shade,
+        this.baseColors[i * 3 + 1] * shade,
+        this.baseColors[i * 3 + 2] * shade,
+      );
     }
     vertices.needsUpdate = true;
     colors.needsUpdate = true;

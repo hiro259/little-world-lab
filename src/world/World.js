@@ -46,6 +46,7 @@ export class World {
     this.minWalkZ = this.id === '02' ? 1.45 : -this.limit;
     this.spawnZ = this.id === '02' ? 6.5 : 0;
     this.waves = [];
+    this.beachPatches = [];
     this.shoreWash = null;
     this.diggableSand = null;
     this.content = new THREE.Group();
@@ -85,7 +86,10 @@ export class World {
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(WORLD_SIZE, landDepth),
-      new THREE.MeshStandardMaterial({ color: isBeach ? 0xe7d3ac : 0xb3d9a4, roughness: 1, metalness: 0 }),
+      // WORLD 02 paints the original sand base and its 26 colored patterns
+      // directly into vertex colors. One ground mesh means digging cannot
+      // cover or hide the patterns with overlapping decorative planes.
+      new THREE.MeshStandardMaterial({ color: isBeach ? 0xffffff : 0xb3d9a4, roughness: 1, metalness: 0 }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(0, -0.037, landCenterZ);
@@ -117,19 +121,22 @@ export class World {
   }
 
   createBeachPatches() {
-    // Sandy colour variation: no meadow patches, green grass, or grass geometry.
+    // Keep the exact deterministic centers, sizes and colors of the
+    // original 26 circular sand patterns, but paint them into the beach
+    // geometry itself. Separate overlay planes can be occluded by dug
+    // terrain (or cover it); vertex colors cannot.
     const rand = seededRandom(921);
-    const patchGeometry = new THREE.CircleGeometry(1, 16);
     const colours = [0xeddcb9, 0xdfc496, 0xe3ca9f];
-    const materials = colours.map((color) => new THREE.MeshBasicMaterial({ color, depthWrite: false }));
     for (let i = 0; i < 26; i++) {
-      const patch = new THREE.Mesh(patchGeometry, materials[i % materials.length]);
-      patch.name = 'SandPatch';
-      patch.rotation.x = -Math.PI / 2;
-      patch.position.set((rand() - 0.5) * 39, -0.025 + (i % 2) * 0.001, 1.8 + rand() * 18.3);
-      patch.scale.set(0.7 + rand() * 1.8, 0.65 + rand() * 1.2, 1);
-      this.scene.add(patch);
+      this.beachPatches.push({
+        x: (rand() - 0.5) * 39,
+        z: 1.8 + rand() * 18.3,
+        radiusX: 0.7 + rand() * 1.8,
+        radiusZ: 0.65 + rand() * 1.2,
+        color: colours[i % colours.length],
+      });
     }
+    this.diggableSand.setColorPatches(this.beachPatches);
   }
 
   createSea() {
@@ -330,19 +337,9 @@ export class World {
   }
 
   digAt(x, z) {
-    // A WORLD 01 meadow has no shovel and remains unchanged.
-    if (!this.diggableSand?.dig(x, z, this.content.children)) return false;
-    // Decorative sand patches are flat planes above the ground. Hide only
-    // overlapping patches so a newly excavated depression remains visible.
-    // Keeping their meshes in the scene preserves the original beach layout.
-    for (const patch of this.scene.children) {
-      if (patch.name !== 'SandPatch' || !patch.visible) continue;
-      const radius = 0.91 + Math.max(patch.scale.x, patch.scale.y);
-      if (Math.hypot(x - patch.position.x, z - patch.position.z) < radius) {
-        patch.visible = false;
-      }
-    }
-    return true;
+    // The sand patterns are part of the same vertex colors as the ground,
+    // so digging never needs to remove or hide a separate mesh.
+    return this.diggableSand?.dig(x, z, this.content.children) ?? false;
   }
 
   getGroundOffsetAt(x, z) {

@@ -76,6 +76,7 @@ test('digging genuinely lowers sand vertices, changes colors and creates a raise
   assert.ok(Math.abs(positions.getX(center) - pointX) < 0.001);
   assert.ok(Math.abs(positions.getY(center) - localY) < 0.001);
   assert.equal(positions.getZ(center), 0);
+  const distantColorBefore = colors.getX(far);
   assert.equal(world.digAt(pointX, pointZ), true);
   assert.equal(world.diggableSand.holes.length, 1);
   assert.ok(positions.getZ(center) < -0.18, 'the mesh has a real recessed bottom');
@@ -83,7 +84,7 @@ test('digging genuinely lowers sand vertices, changes colors and creates a raise
   assert.equal(positions.getZ(far), 0, 'undisturbed terrain stays at original height');
   assert.ok(colors.getX(center) < 0.6, 'the bottom is darker');
   assert.ok(colors.getX(rim) > colors.getX(center));
-  assert.equal(colors.getX(far), 1);
+  assert.equal(colors.getX(far), distantColorBefore, 'digging does not change colors away from the hole');
   assert.ok(world.getGroundOffsetAt(pointX, pointZ) < -0.2);
   assert.equal(world.getGroundOffsetAt(pointX + 3, pointZ), 0);
   assert.equal(ground.material.vertexColors, true);
@@ -115,6 +116,88 @@ test('holes are restricted to dry sand away from items, other holes and the edge
   }
   assert.equal(holes.length, world.diggableSand.maxHoles);
   assert.equal(world.digAt(18, 18), false, 'once at capacity another hole is rejected');
+});
+
+
+test('sand colors are baked into the same ground mesh and persist after digging', () => {
+  const { world, scene } = setup();
+  const sand = world.diggableSand;
+  const geometry = sand.ground.geometry;
+  const colors = geometry.getAttribute('color');
+  const vertices = geometry.getAttribute('position');
+  const baseSand = new THREE.Color(0xe7d3ac);
+  const patterns = world.beachPatches;
+
+  assert.equal(patterns.length, 26, 'all 26 original sand color motifs are preserved');
+  assert.equal(sand.patterns.length, 26);
+  assert.equal(scene.children.filter((object) => object.name === 'SandPatch').length, 0,
+    'there are no separate overlay meshes that can be hidden by holes');
+  assert.equal(sand.ground.material.color.getHex(), 0xffffff,
+    'vertex colors carry the true beach palette instead of double tinting');
+
+  // PlaneGeometry's WORLD 02 mesh has 0.25-unit spacing.
+  const sampleIndex = (x, z) => {
+    const ix = THREE.MathUtils.clamp(Math.round((x + 22) * 4), 0, 176);
+    const iz = THREE.MathUtils.clamp(Math.round(z * 4), 0, 88);
+    return iz * 177 + ix;
+  };
+  const swatch = (i) => [colors.getX(i), colors.getY(i), colors.getZ(i)];
+
+  const first = patterns.find((patch) => sand.canDig(patch.x, patch.z, world.content.children));
+  assert.ok(first, 'at least one colored motif is safely diggable');
+  const firstIndex = sampleIndex(first.x, first.z);
+  const firstColorBefore = swatch(firstIndex);
+  assert.ok(firstColorBefore.some((channel, i) =>
+    Math.abs(channel - [baseSand.r, baseSand.g, baseSand.b][i]) > 0.005),
+  'pattern center is visibly tinted BEFORE digging');
+
+  const farIndex = sampleIndex(first.x + 4, first.z);
+  const distantBefore = swatch(farIndex);
+  const firstHeightBefore = vertices.getZ(firstIndex);
+  assert.equal(firstHeightBefore, 0);
+  assert.equal(world.digAt(first.x, first.z), true);
+  assert.ok(vertices.getZ(firstIndex) < -0.17, 'the tinted motif is actually excavated');
+
+  const firstColorAfter = swatch(firstIndex);
+  const brightness = firstColorAfter[0] / firstColorBefore[0];
+  assert.ok(brightness < 0.7 && brightness > 0.35, 'hole shading darkens but does not erase motif');
+  for (let channel = 1; channel < 3; channel++) {
+    assert.ok(Math.abs(firstColorAfter[channel] / firstColorBefore[channel] - brightness) < 1e-5,
+      'digging keeps the exact pattern color ratios in every channel');
+  }
+  assert.deepEqual(swatch(farIndex), distantBefore,
+    'sand color away from a hole does not change');
+  assert.deepEqual(patterns[0], world.beachPatches[0], 'the original motif specification remains');
+  const firstBase = sand.baseColors.slice(firstIndex * 3, firstIndex * 3 + 3);
+  for (let channel = 0; channel < 3; channel++) {
+    assert.ok(Math.abs(firstBase[channel] - firstColorBefore[channel]) < 1e-5,
+      'color pattern base is not overwritten by digging');
+  }
+
+  const second = patterns.find((patch) =>
+    Math.hypot(patch.x - first.x, patch.z - first.z) > 4
+    && sand.canDig(patch.x, patch.z, world.content.children));
+  assert.ok(second, 'a distant patterned spot can hold a second hole');
+  const secondIndex = sampleIndex(second.x, second.z);
+  assert.equal(world.digAt(second.x, second.z), true);
+  assert.ok(vertices.getZ(secondIndex) < -0.17);
+  assert.ok(vertices.getZ(firstIndex) < -0.17, 'digging elsewhere does not restore the first hole');
+  assert.deepEqual(swatch(firstIndex), firstColorAfter,
+    'digging elsewhere leaves first patterned depression intact');
+  assert.equal(sand.holes.length, 2);
+  assert.ok(world.beachPatches.every((patch) => patterns.includes(patch)));
+});
+
+test('WORLD 01 remains unchanged by color-baked sand patches', () => {
+  const { world } = setup();
+  const untouched = world.beachPatches.map((patch) => ({ ...patch }));
+  assert.equal(world.digAt(-2, 9), true);
+  assert.deepEqual(world.beachPatches, untouched, 'digging does not mutate any patch specifications');
+
+  const meadow = new World(new THREE.Scene(), '01');
+  assert.equal(meadow.digAt(-2, 9), false);
+  assert.deepEqual(meadow.beachPatches, []);
+  assert.equal(meadow.diggableSand, null);
 });
 
 test('A picks up the shovel, S digs once and animates down, and A puts it on the ground', () => {
