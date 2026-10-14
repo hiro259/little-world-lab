@@ -81,7 +81,7 @@ export class Player {
     this.avatar.rotation.y = angle;
   }
 
-  update(dt, axes, cameraForward, cameraRight, worldLimit, lockFacing = false) {
+  update(dt, axes, cameraForward, cameraRight, worldLimit, lockFacing = false, minWalkZ = -worldLimit) {
     this.targetVelocity.copy(cameraForward).multiplyScalar(axes.y);
     this.targetVelocity.addScaledVector(cameraRight, axes.x);
     if (this.targetVelocity.lengthSq() > 0.01) this.targetVelocity.normalize();
@@ -93,7 +93,7 @@ export class Player {
 
     this.group.position.addScaledVector(this.velocity, dt);
     this.group.position.x = THREE.MathUtils.clamp(this.group.position.x, -worldLimit, worldLimit);
-    this.group.position.z = THREE.MathUtils.clamp(this.group.position.z, -worldLimit, worldLimit);
+    this.group.position.z = THREE.MathUtils.clamp(this.group.position.z, minWalkZ, worldLimit);
 
     const speed = this.velocity.length();
     // In POV the avatar follows the look direction, not walking velocity:
