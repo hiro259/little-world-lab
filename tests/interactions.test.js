@@ -161,6 +161,64 @@ test('S makes both flower and mushroom bob vertically instead of swinging across
   }
 });
 
+test('POV preview stays upright, faces the camera, and uses a fitting size for each item', () => {
+  const previews = [];
+  for (const type of ['Flower', 'Mushroom']) {
+    const { world, player, camera, interaction } = setup();
+    const item = world.content.children.find((candidate) => candidate.name === type);
+    player.group.position.copy(item.position);
+    assert.equal(interaction.interact(), true);
+    interaction.update(0.016, true);
+
+    const preview = interaction.cameraItem.children[0];
+    assert.equal(preview.name, type);
+    assert.deepEqual(preview.position.toArray(), [0, 0, 0]);
+    assert.equal(preview.rotation.y, 0, 'flower front must face the player, not be reversed');
+    assert.equal(preview.rotation.x, 0, 'flower stem and mushroom cap must not be upside down');
+    assert.ok(interaction.cameraItem.position.x > 0, 'preview stays on the right side');
+    assert.ok(interaction.cameraItem.position.y < 0, 'preview stays below the eye line');
+    assert.ok(interaction.cameraItem.position.z < -1, 'preview is far enough ahead to be visible');
+    assert.ok(interaction.cameraItem.parent === camera);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(preview.quaternion);
+    assert.ok(up.y > 0.999, 'POV object is upright');
+    previews.push({ scale: preview.scale.y, position: interaction.cameraItem.position.toArray() });
+  }
+  assert.notDeepEqual(previews[0].position, previews[1].position,
+    'flower and mushroom must have separately tuned first-person positions');
+  assert.notEqual(previews[0].scale, previews[1].scale,
+    'small mushrooms are displayed larger than tall flowers');
+});
+
+test('flowers and mushrooms have a hand-sized grip instead of sharing a floating root position', () => {
+  const localHandGrip = new THREE.Vector3(0.12, -0.45, 0);
+  const gripPoints = [];
+  for (const type of ['Flower', 'Mushroom']) {
+    const { world, player, interaction } = setup();
+    const item = world.content.children.find((candidate) => candidate.name === type);
+    player.group.position.copy(item.position);
+    assert.equal(interaction.interact(), true);
+    interaction.update(0.016, false);
+
+    const grip = item.localToWorld(new THREE.Vector3(0, item.userData.carry.gripHeight, 0));
+    const hand = player.rightArm.localToWorld(localHandGrip.clone());
+    assert.ok(grip.distanceTo(hand) < 1e-8,
+      `${type}: stem grip point should line up with the extended right hand`);
+
+    const up = new THREE.Vector3(0, 1, 0)
+      .applyQuaternion(item.getWorldQuaternion(new THREE.Quaternion()));
+    assert.ok(up.y > 0.999, `${type}: item is upright in third-person mode`);
+    gripPoints.push(item.position.z);
+
+    assert.equal(interaction.action(), true);
+    interaction.update(0.08, false);
+    const swingingUp = new THREE.Vector3(0, 1, 0)
+      .applyQuaternion(item.getWorldQuaternion(new THREE.Quaternion()));
+    assert.ok(swingingUp.y > 0.999, `${type}: item stays upright while shaking`);
+  }
+  assert.notEqual(gripPoints[0], gripPoints[1],
+    'grip height must be adjusted for flower vs mushroom proportions');
+});
+
 test('S actions support reusable registry IDs and an individual action override', () => {
   const { world, player, interaction } = setup();
   const flower = world.content.children.find((item) => item.name === 'Flower');
