@@ -8,6 +8,9 @@ export function createCrab({ shellColor = 0xe99575, scale = 1, phase = 0 } = {})
   crab.userData.actionId = 'verticalShake';
   crab.userData.carry = {
     gripHeight: 0.13,
+    // Keep the crab's original heading when catching it, including in POV.
+    // Other objects may keep their existing hand-aligned carrying pose.
+    preserveHeading: true,
     povScale: 1.35,
     povPosition: [0.57, -0.56, -1.54],
   };
