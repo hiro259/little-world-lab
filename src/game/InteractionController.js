@@ -5,10 +5,12 @@ const PICKUP_DISTANCE = 1.65;
 const TOSS_DURATION = 0.38;
 const SWING_DURATION = 0.62;
 const LABELS = { mushroom: 'キノコ', flower: '花' };
-// Relative to the right shoulder: sit the item at the hand, a little forward
-// and to the side of the head. The arm's local -Y points ahead when raised.
-const HELD_ITEM_POSITION = new THREE.Vector3(0.08, -0.49, -0.07);
-const HELD_CAMERA_POSITION = new THREE.Vector3(0.65, -0.66, -1.25);
+// The right-hand grip is relative to the shoulder pivot. With the arm
+// stretched forward, local -Y points forward and local -Z points downward.
+// Each item's carry.gripHeight keeps a different length of stem below the hand.
+const HAND_GRIP_LOCAL = new THREE.Vector3(0.12, -0.45, 0);
+const DEFAULT_HELD_CAMERA_POSITION = new THREE.Vector3(0.54, -0.62, -1.45);
+const DEFAULT_CARRY = { gripHeight: 0.16, povScale: 1.5 };
 // The arm is modeled hanging along -Y. A -90-degree X rotation points it
 // straight forward along the character's local +Z direction.
 const CARRY_ARM_ANGLE = -Math.PI / 2;
@@ -31,7 +33,7 @@ export class InteractionController {
     // avatar mesh is hidden to prevent seeing the inside of its head.
     this.cameraItem = new THREE.Group();
     this.cameraItem.name = 'HeldItemPOV';
-    this.cameraItem.position.copy(HELD_CAMERA_POSITION);
+    this.cameraItem.position.copy(DEFAULT_HELD_CAMERA_POSITION);
     this.cameraItem.visible = false;
     camera.add(this.cameraItem);
     scene.add(camera);
@@ -59,19 +61,24 @@ export class InteractionController {
     this.held = object;
     this.world.content.remove(object);
     this.player.rightArm.add(object);
-    // Keep the item at the outer side of the right hand, below the face.
-    object.position.copy(HELD_ITEM_POSITION);
-    // The outstretched arm is pitched -90 degrees. Counter-rotate the
-    // object so its stem/cap still point UP, not back toward the face.
+    // Align the mushroom/flower stalk with the modeled fingers. Placing
+    // all roots at one fixed location made short mushrooms and taller
+    // flowers appear to float or sink into the fist.
+    const carry = object.userData.carry ?? DEFAULT_CARRY;
+    const gripHeight = (carry.gripHeight ?? DEFAULT_CARRY.gripHeight) * object.scale.y;
+    object.position.copy(HAND_GRIP_LOCAL);
+    object.position.z = -gripHeight;
+    // The arm pitches forward -90°. Counter-rotate so the stalk stays up.
     object.rotation.set(-CARRY_ARM_ANGLE, 0, 0);
     this.cameraItem.clear();
     const preview = object.clone(true);
-    // Camera forward is -Z whereas avatar forward is +Z. Turn the POV
-    // copy around its vertical axis to show the player's actual view
-    // of the carried item, without flipping its top and bottom.
+    // Preserve the item's +Y up and +Z front in camera coordinates.
+    // Camera looks along -Z, so the flower's front (+Z) faces the viewer
+    // without an extra 180° flip.
     preview.position.set(0, 0, 0);
-    preview.rotation.set(0, Math.PI, 0);
-    preview.scale.multiplyScalar(1.9);
+    preview.rotation.set(0, 0, 0);
+    preview.scale.multiplyScalar(carry.povScale ?? DEFAULT_CARRY.povScale);
+    this.cameraItem.position.fromArray(carry.povPosition ?? DEFAULT_HELD_CAMERA_POSITION.toArray());
     this.cameraItem.add(preview);
     this.swingRemaining = 0;
     this.player.rightArm.rotation.x = CARRY_ARM_ANGLE;
@@ -88,7 +95,7 @@ export class InteractionController {
     this.player.rightArm.rotation.z = 0;
     this.player.rightArm.rotation.x = 0;
     this.cameraItem.rotation.x = 0;
-    this.cameraItem.position.copy(HELD_CAMERA_POSITION);
+    this.cameraItem.position.copy(DEFAULT_HELD_CAMERA_POSITION);
     this.cameraItem.clear();
     this.cameraItem.visible = false;
 
@@ -137,19 +144,21 @@ export class InteractionController {
       // Never swing in Z or across the character's face.
       this.player.rightArm.rotation.x = CARRY_ARM_ANGLE + shake * 0.16;
       this.player.rightArm.rotation.z = 0;
-      this.held.position.copy(HELD_ITEM_POSITION);
-      // Preserve an upright object while the arm pitches vertically.
-      // Without this, the arm's -90° rotation tips flowers and mushrooms.
+      const carry = this.held.userData.carry ?? DEFAULT_CARRY;
+      const gripHeight = (carry.gripHeight ?? DEFAULT_CARRY.gripHeight) * this.held.scale.y;
+      this.held.position.copy(HAND_GRIP_LOCAL);
+      this.held.position.z = -gripHeight;
+      // Keep the stems vertical as the outstretched arm bobs up and down.
       this.held.rotation.x = -this.player.rightArm.rotation.x;
 
       // POV uses the same up/down rhythm; never roll the item sideways.
-      this.cameraItem.position.copy(HELD_CAMERA_POSITION);
+      this.cameraItem.position.fromArray(carry.povPosition ?? DEFAULT_HELD_CAMERA_POSITION.toArray());
       this.cameraItem.position.y += shake * 0.15;
       this.cameraItem.rotation.x = shake * 0.13;
       this.cameraItem.rotation.z = 0;
     } else {
       // Walking arm swing is controlled by Player when nothing is held.
-      this.cameraItem.position.copy(HELD_CAMERA_POSITION);
+      this.cameraItem.position.copy(DEFAULT_HELD_CAMERA_POSITION);
       this.cameraItem.rotation.set(0, 0, 0);
     }
 
