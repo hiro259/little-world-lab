@@ -109,13 +109,14 @@ item.userData.actionId = 'verticalShake';
 import { registerHeldAction } from './game/HeldActions.js';
 registerHeldAction('sparkle', (controller, item) => {
   // Implement a custom effect using the held item and game context.
-});
+}, '光らせる'); // this label is shown in the S-key hint
 item.userData.actionId = 'sparkle';
 
 // Optional one-off action for an individual item, takes precedence over ID:
 item.userData.onAction = (controller, item) => {
   // Perform this item's unique action.
 };
+item.userData.actionLabel = '特殊アクション'; // hint for the unique action
 ```
 
 Items are picked up and replanted by `InteractionController`. Grass stays a single efficient `InstancedMesh`, and is not pickable.
