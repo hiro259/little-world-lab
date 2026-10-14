@@ -25,11 +25,12 @@ test('flowers and mushrooms are pickable but instanced meadow grass cannot be up
   assert.ok(scene.children.some((item) => item.name === 'MeadowGrass'));
   assert.equal(interaction.interact(), false, 'nothing is in reach at the starting position');
   assert.equal(interaction.held, null);
+  assert.equal(interaction.getHint(), '', 'there is no prompt when objects are too far away');
 
   const flower = flowers[0];
   player.group.position.set(flower.position.x, 0, flower.position.z);
   assert.equal(interaction.findNearest(), flower);
-  assert.match(interaction.getHint(), /花/);
+  assert.equal(interaction.getHint(), 'A：引っこ抜く', 'show a short prompt when close enough');
   assert.equal(interaction.interact(), true);
   assert.equal(interaction.held, flower);
   assert.equal(flower.parent, player.rightArm);
