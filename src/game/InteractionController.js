@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { performHeldAction } from './HeldActions.js';
+import { performHeldAction, getHeldActionLabel } from './HeldActions.js';
 
 const PICKUP_DISTANCE = 1.65;
 const TOSS_DURATION = 0.38;
@@ -156,7 +156,7 @@ export class InteractionController {
   }
 
   getHint() {
-    if (this.held) return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：植える　S：振る`;
+    if (this.held) return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：植える　S：${getHeldActionLabel(this.held)}`;
     const nearest = this.findNearest();
     if (nearest) return 'A：引っこ抜く';
     // Stay out of the way when there is nothing close enough to pick up.
