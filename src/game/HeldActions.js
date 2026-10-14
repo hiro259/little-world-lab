@@ -10,11 +10,11 @@ export const DEFAULT_HELD_ACTION = 'verticalShake';
 
 const actions = new Map();
 
-export function registerHeldAction(id, handler) {
+export function registerHeldAction(id, handler, label = 'アクション') {
   if (typeof id !== 'string' || !id || typeof handler !== 'function') {
     throw new TypeError('A held action needs a non-empty ID and a handler function.');
   }
-  actions.set(id, handler);
+  actions.set(id, { handler, label });
 }
 
 export function performHeldAction(controller, item) {
@@ -27,10 +27,16 @@ export function performHeldAction(controller, item) {
   }
 
   const id = item.userData.actionId ?? DEFAULT_HELD_ACTION;
-  const handler = actions.get(id);
-  if (!handler) return false; // Never silently perform an unrelated action.
-  handler(controller, item);
+  const action = actions.get(id);
+  if (!action) return false; // Never silently perform an unrelated action.
+  action.handler(controller, item);
   return true;
 }
 
-registerHeldAction(DEFAULT_HELD_ACTION, (controller) => controller.startVerticalShake());
+export function getHeldActionLabel(item) {
+  if (!item) return '';
+  if (item.userData.actionLabel) return item.userData.actionLabel;
+  return actions.get(item.userData.actionId ?? DEFAULT_HELD_ACTION)?.label ?? 'アクション';
+}
+
+registerHeldAction(DEFAULT_HELD_ACTION, (controller) => controller.startVerticalShake(), '振る');
