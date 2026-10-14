@@ -29,7 +29,7 @@ test('WORLD 02 is exactly half ocean and half land within the original square', 
   assert.equal(world.spawnZ, 6.5);
   assert.equal(world.minWalkZ, 1.45);
 
-  const land = find(scene, 'MeadowGround');
+  const land = find(scene, 'BeachGround');
   const sea = find(scene, 'SeaSurface');
   const seabed = find(scene, 'SeaBed');
   const shore = find(scene, 'SandyShore');
@@ -43,26 +43,58 @@ test('WORLD 02 is exactly half ocean and half land within the original square', 
   assert.equal(sea.position.z, -11);
   assert.equal(seabed.position.z, -11);
   assert.ok(shore.position.z >= 0);
-  assert.equal(world.waves.length, 18);
+  assert.equal(world.waves.length, 3);
+  assert.ok(find(scene, 'ShoreWash'));
+  assert.ok(world.shoreWash);
+  assert.equal(find(scene, 'MeadowGround'), undefined);
   assert.equal(world.content.children.length, 3);
   assert.ok(world.content.children.every((mushroom) => mushroom.position.z > 1.55));
 });
 
-test('WORLD 02 grass stays on land (no underwater grass)', () => {
+test('WORLD 02 is a beach without any meadow grass or green meadow patches', () => {
   const scene = new THREE.Scene();
-  new World(scene, '02');
-  const grass = find(scene, 'MeadowGrass');
-  assert.ok(grass && grass.isInstancedMesh);
-  assert.equal(grass.count, 120);
-  const transform = new THREE.Matrix4();
-  const position = new THREE.Vector3();
-  const rotation = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  for (let i = 0; i < grass.count; i++) {
-    grass.getMatrixAt(i, transform);
-    transform.decompose(position, rotation, scale);
-    assert.ok(position.z >= 1.8 && position.z <= 21.6);
+  const world = new World(scene, '02');
+  const beach = find(scene, 'BeachGround');
+  assert.ok(beach);
+  assert.equal(beach.geometry.parameters.height, 22);
+  assert.equal(find(scene, 'MeadowGrass'), undefined);
+  assert.equal(find(scene, 'MeadowEarth'), undefined);
+  assert.equal(find(scene, 'MeadowGround'), undefined);
+
+  const sandPatches = scene.children.filter((object) => object.name === 'SandPatch');
+  assert.equal(sandPatches.length, 26);
+  for (const patch of sandPatches) {
+    assert.ok(patch.position.z > 0, 'sand variation remains on land');
   }
+
+  const normalWorld = new World(new THREE.Scene(), '01');
+  assert.equal(normalWorld.waves.length, 0);
+  assert.equal(normalWorld.shoreWash, null);
+});
+
+test('WORLD 02 waves visibly advance and recede with gentle foam animation', () => {
+  const scene = new THREE.Scene();
+  const world = new World(scene, '02');
+  assert.equal(world.waves.length, 3);
+  assert.ok(world.waves.every((wave) => wave.name === 'WaveBand'));
+  assert.equal(world.shoreWash.name, 'ShoreWash');
+
+  const before = world.waves.map((wave) => ({
+    z: wave.position.z,
+    opacity: wave.material.opacity,
+  }));
+  const washBefore = world.shoreWash.position.z;
+  world.update(0.7, {});
+
+  assert.ok(world.waves.some((wave, i) => wave.position.z !== before[i].z));
+  assert.ok(world.waves.some((wave, i) => wave.material.opacity !== before[i].opacity));
+  const washAdvanced = world.shoreWash.position.z;
+  assert.ok(washAdvanced > washBefore, 'water first advances toward the beach');
+
+  world.update(2.6, {});
+  assert.ok(world.shoreWash.position.z < washAdvanced, 'water then retreats');
+  assert.ok(world.waves[0].position.z < world.waves[0].userData.baseZ, 'front breaker retreats');
+  assert.ok(world.shoreWash.position.z < 1, 'decorative water does not reach the spawn location');
 });
 
 test('the player can walk on the shore but cannot walk onto sea in WORLD 02', () => {
@@ -99,5 +131,5 @@ test('the world badge is a keyboard-operable button with the correct URL switch'
   assert.match(main, /searchParams\.delete\('world'\)/);
   assert.match(main, /new Game\(container, worldId\)/);
   assert.match(styles, /\.world-label\s*\{[^}]*pointer-events: auto/s);
-  assert.deepEqual(WORLD_NAMES, { '01': 'はじまりの草原', '02': '海辺の草原' });
+  assert.deepEqual(WORLD_NAMES, { '01': 'はじまりの草原', '02': '海辺の砂浜' });
 });
