@@ -40,3 +40,6 @@ export function getHeldActionLabel(item) {
 }
 
 registerHeldAction(DEFAULT_HELD_ACTION, (controller) => controller.startVerticalShake(), '振る');
+// The shovel has a genuine object-specific action. All other items continue
+// using the shared vertical shake without changes.
+registerHeldAction('digSand', (controller, shovel) => controller.digWithShovel(shovel), '掘る');

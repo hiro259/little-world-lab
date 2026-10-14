@@ -25,10 +25,11 @@ test('WORLD 02 has three individual clams and three independent, walking crabs i
   assert.equal(counts('Crab'), 3);
   assert.equal(counts('Mushroom'), 0);
   assert.equal(counts('Flower'), 0);
+  assert.equal(counts('Shovel'), 1);
   assert.equal(world.updatables.length, 3, 'each crab has its own animation');
   for (const item of world.content.children) {
     assert.ok(item.position.z >= world.minWalkZ + 0.28);
-    assert.equal(item.userData.actionId, 'verticalShake');
+    assert.equal(item.userData.actionId, item.name === 'Shovel' ? 'digSand' : 'verticalShake');
     assert.ok(item.userData.carry.gripHeight > 0);
   }
   const meadow = new World(new THREE.Scene(), '01');

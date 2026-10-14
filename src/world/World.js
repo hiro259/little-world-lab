@@ -3,6 +3,8 @@ import { createMushroom } from '../objects/Mushroom.js';
 import { createFlower } from '../objects/Flower.js';
 import { createClam } from '../objects/Clam.js';
 import { createCrab } from '../objects/Crab.js';
+import { createShovel } from '../objects/Shovel.js';
+import { DiggableSand } from './DiggableSand.js';
 
 const WORLD_SIZE = 44;
 
@@ -45,6 +47,7 @@ export class World {
     this.spawnZ = this.id === '02' ? 6.5 : 0;
     this.waves = [];
     this.shoreWash = null;
+    this.diggableSand = null;
     this.content = new THREE.Group();
     this.content.name = 'AddedObjects';
     this.scene.add(this.content);
@@ -60,6 +63,7 @@ export class World {
       this.createStarterFlowers();
     } else {
       this.createBeachCreatures();
+      this.addObject(createShovel(), [1.05, -0.03, 6.75]);
     }
   }
 
@@ -72,7 +76,9 @@ export class World {
       new THREE.BoxGeometry(WORLD_SIZE, 0.85, landDepth),
       new THREE.MeshStandardMaterial({ color: isBeach ? 0xc7ad81 : 0xa4b794, roughness: 1 }),
     );
-    earth.position.set(0, -0.47, landCenterZ);
+    // WORLD 02's actual recessed holes need empty space below the beach
+    // surface; otherwise the land cube would show through the depression.
+    earth.position.set(0, isBeach ? -0.77 : -0.47, landCenterZ);
     earth.receiveShadow = true;
     earth.name = isBeach ? 'BeachEarth' : 'MeadowEarth';
     this.scene.add(earth);
@@ -88,6 +94,7 @@ export class World {
     this.scene.add(ground);
 
     if (isBeach) {
+      this.diggableSand = new DiggableSand(ground);
       this.createBeachPatches();
       this.createSea();
       return;
@@ -320,6 +327,26 @@ export class World {
     this.content.add(entry.mesh);
     if (typeof entry.update === 'function') this.updatables.push(entry);
     return entry.mesh;
+  }
+
+  digAt(x, z) {
+    // A WORLD 01 meadow has no shovel and remains unchanged.
+    if (!this.diggableSand?.dig(x, z, this.content.children)) return false;
+    // Decorative sand patches are flat planes above the ground. Hide only
+    // overlapping patches so a newly excavated depression remains visible.
+    // Keeping their meshes in the scene preserves the original beach layout.
+    for (const patch of this.scene.children) {
+      if (patch.name !== 'SandPatch' || !patch.visible) continue;
+      const radius = 0.91 + Math.max(patch.scale.x, patch.scale.y);
+      if (Math.hypot(x - patch.position.x, z - patch.position.z) < radius) {
+        patch.visible = false;
+      }
+    }
+    return true;
+  }
+
+  getGroundOffsetAt(x, z) {
+    return this.diggableSand?.heightAt(x, z) ?? 0;
   }
 
   update(dt, context) {

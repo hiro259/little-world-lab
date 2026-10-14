@@ -1,0 +1,115 @@
+import * as THREE from 'three';
+
+const SIZE_X = 44;
+const SIZE_Z = 22;
+const CENTER_Z = 11;
+const GRID_X = 176;
+const GRID_Z = 88;
+const MAX_HOLES = 24;
+const HOLE_RADIUS = 0.91;
+const SHORE_MIN_Z = 2.65;
+const LAND_MAX_Z = 19.8;
+const LAND_MAX_X = 19.7;
+
+// Smoothstep from 0..1, with zero slopes at either end.
+function smoothstep(x) {
+  const t = THREE.MathUtils.clamp(x, 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function holeShape(distance) {
+  if (distance >= HOLE_RADIUS) return { height: 0, darkness: 0 };
+  // A broad recessed center slopes into a small raised rim.
+  const bowl = 1 - smoothstep((distance - 0.18) / 0.53);
+  const rim = Math.max(0, 1 - Math.abs(distance - 0.74) / 0.16);
+  return {
+    height: -0.23 * bowl + 0.043 * rim * rim,
+    darkness: 0.53 * bowl + 0.11 * rim,
+  };
+}
+
+/**
+ * REAL mesh depressions, not flat dark stickers. The land cube is lowered
+ * in WORLD 02 so the ground underneath doesn't cover the hollowed surface.
+ *
+ * Geometry remains one mesh. Work is only performed when S digs a new hole,
+ * not each animation frame. There are at most 24 holes for bounded cost.
+ */
+export class DiggableSand {
+  constructor(ground) {
+    this.ground = ground;
+    this.holes = [];
+    this.maxHoles = MAX_HOLES;
+
+    const original = ground.geometry;
+    const geometry = new THREE.PlaneGeometry(SIZE_X, SIZE_Z, GRID_X, GRID_Z);
+    const positions = geometry.getAttribute('position');
+    const colors = new Float32Array(positions.count * 3);
+    colors.fill(1);
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    ground.geometry = geometry;
+    original.dispose();
+    ground.material.vertexColors = true;
+    ground.material.needsUpdate = true;
+  }
+
+  /** Offset relative to the original level surface. */
+  heightAt(x, z) {
+    let result = 0;
+    for (const hole of this.holes) {
+      const d = Math.hypot(x - hole.x, z - hole.z);
+      if (d < HOLE_RADIUS) result += holeShape(d).height;
+    }
+    return result;
+  }
+
+  canDig(x, z, objects = []) {
+    if (!Number.isFinite(x) || !Number.isFinite(z) || this.holes.length >= this.maxHoles) return false;
+    // Stay on dry sand and away from corners, water, and the decorative shore.
+    if (Math.abs(x) > LAND_MAX_X || z < SHORE_MIN_Z || z > LAND_MAX_Z) return false;
+    for (const hole of this.holes) {
+      if (Math.hypot(x - hole.x, z - hole.z) < HOLE_RADIUS * 2.15) return false;
+    }
+    for (const object of objects) {
+      if (!object.userData.pickupType || object.userData.isHeld || object.userData.isTossing) continue;
+      if (Math.hypot(x - object.position.x, z - object.position.z) < 1.12) return false;
+    }
+    return true;
+  }
+
+  dig(x, z, objects = []) {
+    if (!this.canDig(x, z, objects)) return false;
+    this.holes.push({ x, z });
+    this.rebuildGeometry();
+    return true;
+  }
+
+  rebuildGeometry() {
+    const geometry = this.ground.geometry;
+    const vertices = geometry.getAttribute('position');
+    const colors = geometry.getAttribute('color');
+    for (let i = 0; i < vertices.count; i++) {
+      const x = vertices.getX(i);
+      // PlaneGeometry is rotated -90 degrees around X in World.js, so its
+      // local Y becomes negative world Z after a world-space shift of +11.
+      const z = CENTER_Z - vertices.getY(i);
+      let height = 0;
+      let darkness = 0;
+      for (const hole of this.holes) {
+        const distance = Math.hypot(x - hole.x, z - hole.z);
+        if (distance >= HOLE_RADIUS) continue;
+        const shape = holeShape(distance);
+        height += shape.height;
+        darkness = Math.max(darkness, shape.darkness);
+      }
+      vertices.setZ(i, height); // local +Z becomes WORLD +Y after rotation
+      const shade = Math.max(0.37, 1 - darkness);
+      colors.setXYZ(i, shade, shade, shade);
+    }
+    vertices.needsUpdate = true;
+    colors.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+  }
+}

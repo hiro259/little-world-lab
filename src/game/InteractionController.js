@@ -4,7 +4,8 @@ import { performHeldAction, getHeldActionLabel } from './HeldActions.js';
 const PICKUP_DISTANCE = 1.65;
 const TOSS_DURATION = 0.38;
 const SWING_DURATION = 0.62;
-const LABELS = { mushroom: 'キノコ', flower: '花', clam: 'アサリ', crab: 'カニ' };
+const DIG_DURATION = 0.54;
+const LABELS = { mushroom: 'キノコ', flower: '花', clam: 'アサリ', crab: 'カニ', shovel: 'スコップ' };
 // The right-hand grip is relative to the shoulder pivot. With the arm
 // stretched forward, local -Y points forward and local -Z points downward.
 // Each item's carry.gripHeight keeps a different length of stem below the hand.
@@ -32,6 +33,7 @@ export class InteractionController {
     // same direction as the player when attached to the carrying arm.
     this.heldRelativeOrientation = null;
     this.swingRemaining = 0;
+    this.digRemaining = 0;
     this.tosses = [];
 
     // A second display-only copy keeps the item visible in POV, where the
@@ -109,6 +111,7 @@ export class InteractionController {
     this.cameraItem.position.fromArray(carry.povPosition ?? DEFAULT_HELD_CAMERA_POSITION.toArray());
     this.cameraItem.add(preview);
     this.swingRemaining = 0;
+    this.digRemaining = 0;
     this.player.rightArm.rotation.x = CARRY_ARM_ANGLE;
     this.player.rightArm.rotation.z = 0;
     this.cameraItem.rotation.z = 0;
@@ -129,6 +132,7 @@ export class InteractionController {
     this.held = null;
     object.userData.isHeld = false;
     this.swingRemaining = 0;
+    this.digRemaining = 0;
     this.player.rightArm.rotation.z = 0;
     this.player.rightArm.rotation.x = 0;
     this.cameraItem.rotation.x = 0;
@@ -142,8 +146,8 @@ export class InteractionController {
     const forwardZ = Math.cos(facing);
     const x = THREE.MathUtils.clamp(origin.x + forwardX * 1.30, -this.world.limit + 0.3, this.world.limit - 0.3);
     const z = THREE.MathUtils.clamp(origin.z + forwardZ * 1.30, this.world.minWalkZ + 0.28, this.world.limit - 0.3);
-    const start = new THREE.Vector3(origin.x + forwardX * 0.55, 0.85, origin.z + forwardZ * 0.55);
-    const end = new THREE.Vector3(x, -0.03, z);
+    const start = new THREE.Vector3(origin.x + forwardX * 0.55, origin.y + 0.85, origin.z + forwardZ * 0.55);
+    const end = new THREE.Vector3(x, -0.03 + this.world.getGroundOffsetAt(x, z), z);
 
     this.player.rightArm.remove(object);
     this.world.content.add(object);
@@ -158,6 +162,18 @@ export class InteractionController {
   startVerticalShake() {
     if (!this.held) return false;
     this.swingRemaining = SWING_DURATION;
+    return true;
+  }
+
+  digWithShovel(shovel) {
+    if (!this.held || this.held !== shovel || shovel.userData.pickupType !== 'shovel') return false;
+    if (this.digRemaining > 0) return false; // finish one stroke at a time
+    // Avatar faces +Z at yaw zero. Dig one short step directly ahead.
+    const x = this.player.group.position.x + Math.sin(this.player.facing) * 1.5;
+    const z = this.player.group.position.z + Math.cos(this.player.facing) * 1.5;
+    if (!this.world.digAt(x, z)) return false;
+    this.swingRemaining = 0;
+    this.digRemaining = DIG_DURATION;
     return true;
   }
 
@@ -176,11 +192,14 @@ export class InteractionController {
       const shake = this.swingRemaining > 0
         ? Math.sin(progress * Math.PI * 6) * Math.sin(progress * Math.PI)
         : 0;
+      this.digRemaining = Math.max(0, this.digRemaining - dt);
+      const digProgress = 1 - this.digRemaining / DIG_DURATION;
+      const digStroke = this.digRemaining > 0 ? Math.sin(digProgress * Math.PI) : 0;
 
       // Hold the entire right arm straight out in front, including when
       // walking. S adds only a gentle up/down wrist-level bob about that pose.
       // Never swing in Z or across the character's face.
-      this.player.rightArm.rotation.x = CARRY_ARM_ANGLE + shake * 0.16;
+      this.player.rightArm.rotation.x = CARRY_ARM_ANGLE + shake * 0.16 + digStroke * 0.48;
       this.player.rightArm.rotation.z = 0;
       const carry = this.held.userData.carry ?? DEFAULT_CARRY;
       const gripHeight = (carry.gripHeight ?? DEFAULT_CARRY.gripHeight) * this.held.scale.y;
@@ -197,8 +216,8 @@ export class InteractionController {
 
       // POV uses the same up/down rhythm; never roll the item sideways.
       this.cameraItem.position.fromArray(carry.povPosition ?? DEFAULT_HELD_CAMERA_POSITION.toArray());
-      this.cameraItem.position.y += shake * 0.15;
-      this.cameraItem.rotation.x = shake * 0.13;
+      this.cameraItem.position.y += shake * 0.15 - digStroke * 0.20;
+      this.cameraItem.rotation.x = shake * 0.13 + digStroke * 0.25;
       this.cameraItem.rotation.z = 0;
       // Animated pickups may synchronize moving parts of their first-person
       // display copy. The crab uses this for legs/claws, while S stays the
@@ -229,14 +248,14 @@ export class InteractionController {
 
   getHint() {
     if (this.held) {
-      const isBeachItem = ['crab', 'clam'].includes(this.held.userData.pickupType);
-      const verb = isBeachItem ? '離す' : '植える';
+      const type = this.held.userData.pickupType;
+      const verb = type === 'shovel' ? '置く' : ['crab', 'clam'].includes(type) ? '離す' : '植える';
       return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：${verb}　S：${getHeldActionLabel(this.held)}`;
     }
     const nearest = this.findNearest();
     if (nearest) {
       if (nearest.userData.pickupType === 'crab') return 'A：捕まえる';
-      if (nearest.userData.pickupType === 'clam') return 'A：拾う';
+      if (nearest.userData.pickupType === 'clam' || nearest.userData.pickupType === 'shovel') return 'A：拾う';
       return 'A：引っこ抜く';
     }
     // Stay out of the way when there is nothing close enough to pick up.

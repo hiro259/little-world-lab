@@ -18,7 +18,7 @@ No backend, login, multiplayer, or external 3D assets are required.
 Click the **WORLD** badge in the top-right corner (or focus it and press Enter/Space) to switch between:
 
 - **WORLD 01 — はじまりの草原:** the original 44×44 grassy square, with three tiny mushrooms and three pickable flowers.
-- **WORLD 02 — 海辺の砂浜:** the same 44×44 square, split **half sandy beach (+Z) / half sea (-Z)**. There is **no grass or mushroom** in WORLD 02. Three pickable clams and three gently side-stepping crabs inhabit the shore, beside the pale sand, wet shoreline and animated white foam breakers. The crab's legs and claws keep moving even when carried (including in POV).
+- **WORLD 02 — 海辺の砂浜:** the same 44×44 square, split **half sandy beach (+Z) / half sea (-Z)**. There is **no grass or mushroom** in WORLD 02. Three pickable clams, three gently side-stepping crabs and one shovel inhabit the shore, beside the pale sand, wet shoreline and animated white foam breakers. Carry the shovel and use S to dig actual depressions in the sand. The crab's legs and claws keep moving even when carried (including in POV).
 
 The selection is kept in the URL (WORLD 02 uses `?world=02`). Switching worlds reloads the scene to start from a known, safe position. WORLD 02 starts on land and prevents walking into the ocean; swimming is not implemented yet. You can share the link to a specific world.
 
@@ -41,8 +41,8 @@ Controls:
 - **Shift + ← / →:** rotate the camera/look left and right (without walking).
 - **Shift + ↑ / ↓:** change the camera angle / look up and down (without walking).
 - **Ctrl (press once):** toggle first-person POV on/off; release it before using arrows to avoid macOS shortcuts.
-- **A:** pull up a nearby mushroom or flower in WORLD 01, or pick up a clam / catch a crab in WORLD 02. Press A again to plant (meadow) or release onto sand (beach).
-- **S:** swing the held item **up and down** while keeping it to the right of the face. Mushrooms, flowers, clams and crabs all share the `verticalShake` action. The action can be assigned by ID or overridden per item.
+- **A:** pull up a mushroom or flower in WORLD 01, or pick up a clam, catch a crab, or pick up the shovel in WORLD 02. Press A again to plant, release, or set down the shovel.
+- **S:** swing mushrooms, flowers, clams and crabs using the shared `verticalShake` action. When holding the **shovel**, S instead digs a **real shallow hole** a step ahead, with a downward arm stroke. Beach depressions remain until reloading.
 - **W / D:** reserved for future actions; no current effect.
 - Click the **操作方法** panel to collapse it into a small button; click again to expand.
 
@@ -87,10 +87,13 @@ No environment variables or server-side components are needed. Cloudflare setup 
         Flower.js               Procedural wildflower model (WORLD 01)
         Clam.js                 Pickable bivalve shell (WORLD 02)
         Crab.js                 Side-stepping crab with animated legs (WORLD 02)
+        Shovel.js               Pickable beach shovel with dig S action (WORLD 02)
+      world/
+        DiggableSand.js         Vertex-deformed terrain mesh and safe excavation limits
 
 ## Adding something to the world
 
-**WORLD 01** contains three tiny mushrooms and three pickable flowers beside its existing grass. **WORLD 02** contains three clams and three walking crabs (no mushrooms or flowers). Its crabs wander slowly across sand without entering the sea. Catching one stops its movement but not its leg animation, including in POV; releasing it allows it to walk again. Future requests can add more animals and props.
+**WORLD 01** contains three tiny mushrooms and three pickable flowers beside its existing grass. **WORLD 02** contains three clams, three walking crabs, and a shovel (no mushrooms or flowers). Its crabs wander slowly across sand without entering the sea. Catching one stops its movement but not its leg animation, including in POV; releasing it allows it to walk again. With the shovel, S deforms the beach geometry and shading to leave a visible depression and a raised rim. The player steps down into holes. Digging is restricted to dry, clear sand, away from existing objects, overlapping holes and the map edges; up to 24 holes can be dug per session. Digging does not change the sea or WORLD 01. Future requests can add more animals and props.
 
 `World.addObject(item, position)` provides an entry point:
 
@@ -119,6 +122,9 @@ item.userData.onAction = (controller, item) => {
   // Perform this item's unique action.
 };
 item.userData.actionLabel = '特殊アクション'; // hint for the unique action
+
+// The shovel is assigned the shared registry's 'digSand' action,
+// which calls controller.digWithShovel(shovel) and displays S：掘る.
 ```
 
 Items are picked up and replanted/released by `InteractionController`. Grass stays a single efficient `InstancedMesh`, and is not pickable. Animated items can define an optional `userData.syncHeldPreview(preview)` hook to animate their camera-attached POV copy. Crab locomotion and leg movement use the `{ mesh, update }` world update hook, so only locomotion pauses while the animal is carried.
