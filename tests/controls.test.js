@@ -56,14 +56,33 @@ test('arrow keys move normally, Shift + arrow keys orbit without moving', () => 
   }
 });
 
-test('WASD remains available while orbiting and the keys reset on blur', () => {
+test('A and S are actions, W and D are reserved, and blur clears inputs', () => {
   const h = inputHarness();
   try {
     h.key('keydown', 'ShiftRight');
     h.key('keydown', 'ArrowLeft');
     h.key('keydown', 'KeyW');
-    assert.deepEqual(h.input.getMovement(), { x: 0, y: 1 });
+    h.key('keydown', 'KeyD');
+    assert.deepEqual(h.input.getMovement(), { x: 0, y: 0 });
     assert.deepEqual(h.input.getCameraOrbit(), { x: -1, y: 0 });
+    h.key('keyup', 'ShiftRight');
+    h.key('keyup', 'ArrowLeft');
+
+    h.key('keydown', 'KeyA');
+    h.key('keydown', 'KeyA', { tagName: 'BODY' }, { repeat: true });
+    h.key('keydown', 'KeyS');
+    assert.deepEqual(h.input.getMovement(), { x: 0, y: 0 });
+    assert.deepEqual(h.input.consumeActions(), ['interact', 'action']);
+    assert.deepEqual(h.input.consumeActions(), []);
+
+    h.key('keyup', 'KeyA');
+    h.key('keydown', 'KeyA');
+    assert.deepEqual(h.input.consumeActions(), ['interact']);
+    h.key('keyup', 'KeyA');
+    h.key('keydown', 'KeyA', { tagName: 'BODY' }, { metaKey: true });
+    assert.deepEqual(h.input.consumeActions(), [], 'Cmd+A must be ignored');
+
+    h.key('keydown', 'ArrowDown');
     h.blur();
     assert.deepEqual(h.input.getMovement(), { x: 0, y: 0 });
     assert.deepEqual(h.input.getCameraOrbit(), { x: 0, y: 0 });
@@ -107,29 +126,30 @@ test('the native help panel starts open and has the requested controls', () => {
   assert.match(html, /Shift＋← →/);
   assert.match(html, /Shift＋↑ ↓/);
   assert.match(html, /Ctrl：一人称視点（POV）/);
-  assert.match(html, /POV中 ← →/);
-  assert.match(html, /POV中 ↑ ↓/);
-  assert.match(html, /POV中 WASD/);
+  assert.match(html, /矢印キー：移動/);
+  assert.match(html, /A：キノコ・花を抜く/);
+  assert.match(html, /S：持ったものを振る/);
+  assert.match(html, /W・D：今後のアクション用/);
 });
 
-test('Ctrl toggles first-person mode once per press; arrows look while WASD walks', () => {
+test('Ctrl toggles POV, arrows move in POV, Shift+arrows look without walking', () => {
   const h = inputHarness();
   try {
     h.key('keydown', 'ControlLeft');
     assert.equal(h.input.isFirstPerson, true);
     h.key('keydown', 'ControlLeft', { tagName: 'BODY' }, { repeat: true });
-    assert.equal(h.input.isFirstPerson, true, 'holding Ctrl must not toggle repeatedly');
+    assert.equal(h.input.isFirstPerson, true);
     h.key('keyup', 'ControlLeft');
-    assert.equal(h.input.isFirstPerson, true, 'POV is a toggle, not a held modifier');
+    assert.equal(h.input.isFirstPerson, true);
 
     h.key('keydown', 'ArrowUp');
-    assert.deepEqual(h.input.getMovement(), { x: 0, y: 0 });
-    assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 1 });
-    assert.deepEqual(h.input.getCameraOrbit(), { x: 0, y: 0 });
-
+    assert.deepEqual(h.input.getMovement(), { x: 0, y: 1 });
+    assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 0 });
     h.key('keydown', 'KeyW');
     assert.deepEqual(h.input.getMovement(), { x: 0, y: 1 });
+
     h.key('keydown', 'ShiftLeft');
+    assert.deepEqual(h.input.getMovement(), { x: 0, y: 0 });
     assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 1 });
     assert.deepEqual(h.input.getCameraOrbit(), { x: 0, y: 0 });
 
@@ -138,8 +158,9 @@ test('Ctrl toggles first-person mode once per press; arrows look while WASD walk
     assert.deepEqual(h.input.getPOVLook(), { x: 1, y: 0 });
 
     h.key('keyup', 'ShiftLeft');
+    assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 0 });
+    assert.deepEqual(h.input.getMovement(), { x: 1, y: 0 });
     h.key('keyup', 'ArrowRight');
-    h.key('keyup', 'KeyW');
     h.key('keydown', 'ControlRight');
     assert.equal(h.input.isFirstPerson, false);
     assert.deepEqual(h.input.getPOVLook(), { x: 0, y: 0 });

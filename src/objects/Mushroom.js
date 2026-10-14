@@ -7,6 +7,14 @@ import * as THREE from 'three';
 export function createMushroom({ capColor = 0xd96b65, scale = 1 } = {}) {
   const group = new THREE.Group();
   group.name = 'Mushroom';
+  group.userData.pickupType = 'mushroom';
+  // A mushroom is shorter than a flower: grip near the cap, preview larger.
+  group.userData.carry = {
+    gripHeight: 0.12,
+    povScale: 2.2,
+    povPosition: [0.55, -0.49, -1.55],
+  };
+  group.userData.actionId = 'verticalShake'; // Shared S action; can be overridden per item.
 
   const stem = new THREE.Mesh(
     new THREE.CylinderGeometry(0.045, 0.068, 0.20, 7),

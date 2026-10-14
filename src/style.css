@@ -161,6 +161,28 @@ body { overflow: hidden; }
 .prompt strong { font-weight: 900; font-size: clamp(16px, 1.55vw, 23px); letter-spacing: .03em; }
 .prompt small { color: #628478; font-weight: 600; font-size: 12px; letter-spacing: .07em; }
 
+.interaction-hint[hidden] { display: none; }
+
+.interaction-hint {
+  position: absolute;
+  z-index: 2;
+  bottom: clamp(115px, 16vh, 180px);
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  max-width: calc(100vw - 30px);
+  padding: 9px 16px;
+  border: 1px solid #ffffffd8;
+  border-radius: 100px;
+  background: #ffffffd6;
+  color: #3e685b;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 8px 22px #6e9b8b22;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .startup-error {
   position: absolute;
   left: 50%;
@@ -179,6 +201,7 @@ body { overflow: hidden; }
 .startup-error p { font-size: 14px; line-height: 1.8; }
 
 @media (max-width: 700px) {
+  .interaction-hint { bottom: 110px; font-size: 10px; padding: 8px 12px; white-space: normal; width: max-content; }
   .hud--top { align-items: flex-start; }
   .brand__mark { width: 36px; height: 36px; border-radius: 12px; transform-origin: left top; }
   .brand__mark span:nth-child(1) { top: 7px; left: 6px; }

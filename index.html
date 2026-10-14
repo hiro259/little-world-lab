@@ -28,6 +28,8 @@
         </button>
       </header>
 
+      <div id="interaction-hint" class="interaction-hint" aria-live="polite" hidden></div>
+
       <footer class="hud hud--bottom">
         <details class="control-help" open>
           <summary class="control-help__summary">
@@ -44,13 +46,13 @@
                 </span>
                 <span class="control-help__description">
                   <strong>歩いてみよう</strong>
-                  <small>WASD / 矢印キー：移動</small>
-                  <small>Shift＋← →：カメラを左右回転</small>
-                  <small>Shift＋↑ ↓：カメラの角度変更</small>
-                  <small>Ctrl：一人称視点（POV）に切替／戻す</small>
-                  <small>POV中 ← →：視線を左右に動かす</small>
-                  <small>POV中 ↑ ↓：見上げる／見下ろす</small>
-                  <small>POV中 WASD：歩く</small>
+                  <small>矢印キー：移動（通常・POV共通）</small>
+                  <small>Shift＋← →：カメラ・視線を左右回転</small>
+                  <small>Shift＋↑ ↓：カメラ角度・視線の上下</small>
+                  <small>Ctrl：一人称視点（POV）切替／戻す</small>
+                  <small>A：キノコ・花を抜く／手放して植える</small>
+                  <small>S：持ったものを振る（固有アクション）</small>
+                  <small>W・D：今後のアクション用</small>
                 </span>
               </span>
               <span class="control-help__hint">クリックで閉じる <span aria-hidden="true">⌄</span></span>

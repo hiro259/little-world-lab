@@ -3,6 +3,7 @@ import { Input } from './Input.js';
 import { OrbitCamera } from './OrbitCamera.js';
 import { Player } from '../player/Player.js';
 import { World } from '../world/World.js';
+import { InteractionController } from './InteractionController.js';
 
 export class Game {
   constructor(container, worldId = '01') {
@@ -48,6 +49,8 @@ export class Game {
 
     this.cameraOrbit = new OrbitCamera(this.camera);
     this.cameraOrbit.follow(0, this.player.group.position, true);
+    this.interactions = new InteractionController({ world: this.world, player: this.player, camera: this.camera, scene: this.scene });
+    this.interactionHint = document.querySelector('#interaction-hint');
 
     this.onResize = this.resize.bind(this);
     this.onFrame = this.frame.bind(this);
@@ -107,6 +110,17 @@ export class Game {
     );
 
     this.cameraOrbit.follow(dt, this.player.group.position, switchingPerspective);
+
+    for (const action of this.input.consumeActions()) {
+      if (action === 'interact') this.interactions.interact();
+      else if (action === 'action') this.interactions.action();
+    }
+    this.interactions.update(dt, this.input.isFirstPerson);
+    if (this.interactionHint) {
+      const hint = this.interactions.getHint();
+      if (this.interactionHint.textContent !== hint) this.interactionHint.textContent = hint;
+      this.interactionHint.hidden = !hint;
+    }
 
     this.world.update(dt, { player: this.player, camera: this.camera, world: this.world });
     this.renderer.render(this.scene, this.camera);
