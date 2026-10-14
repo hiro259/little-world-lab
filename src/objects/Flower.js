@@ -5,6 +5,12 @@ export function createFlower({ petalColor = 0xf6a6c8, scale = 1 } = {}) {
   const flower = new THREE.Group();
   flower.name = 'Flower';
   flower.userData.pickupType = 'flower';
+  // The avatar grips the middle of the stalk; POV has its own scale and framing.
+  flower.userData.carry = {
+    gripHeight: 0.24,
+    povScale: 1.12,
+    povPosition: [0.54, -0.69, -1.45],
+  };
   flower.userData.actionId = 'verticalShake'; // Shared S action; can be overridden per item.
 
   const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x5a9f67, roughness: 1 });
