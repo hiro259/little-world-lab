@@ -50,13 +50,15 @@ export class Player {
     // Swing the limbs rather than using an animation library.
     this.leftArm = new THREE.Group();
     this.rightArm = new THREE.Group();
-    this.leftArm.position.set(-0.39, 0.91, 0);
-    this.rightArm.position.set(0.39, 0.91, 0);
+    // Avatar faces local +Z. Its anatomical RIGHT (and the POV camera's
+    // screen-right) is local -X; +X is the left side when facing +Z.
+    this.leftArm.position.set(0.39, 0.91, 0);
+    this.rightArm.position.set(-0.39, 0.91, 0);
     this.avatar.add(this.leftArm, this.rightArm);
-    sphere(this.leftArm, jacket, 0.16, -0.055, -0.18, 0, [0.85, 1.35, 0.9]);
-    sphere(this.rightArm, jacket, 0.16, 0.055, -0.18, 0, [0.85, 1.35, 0.9]);
-    sphere(this.leftArm, skin, 0.12, -0.075, -0.36, 0);
-    sphere(this.rightArm, skin, 0.12, 0.075, -0.36, 0);
+    sphere(this.leftArm, jacket, 0.16, 0.055, -0.18, 0, [0.85, 1.35, 0.9]);
+    sphere(this.rightArm, jacket, 0.16, -0.055, -0.18, 0, [0.85, 1.35, 0.9]);
+    sphere(this.leftArm, skin, 0.12, 0.075, -0.36, 0);
+    sphere(this.rightArm, skin, 0.12, -0.075, -0.36, 0);
 
     this.leftLeg = new THREE.Group();
     this.rightLeg = new THREE.Group();
