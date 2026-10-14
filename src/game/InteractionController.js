@@ -8,7 +8,8 @@ const LABELS = { mushroom: 'キノコ', flower: '花' };
 // The right-hand grip is relative to the shoulder pivot. With the arm
 // stretched forward, local -Y points forward and local -Z points downward.
 // Each item's carry.gripHeight keeps a different length of stem below the hand.
-const HAND_GRIP_LOCAL = new THREE.Vector3(0.12, -0.45, 0);
+// On a +Z-facing avatar, local -X is the character's right hand.
+const HAND_GRIP_LOCAL = new THREE.Vector3(-0.12, -0.45, 0);
 const DEFAULT_HELD_CAMERA_POSITION = new THREE.Vector3(0.54, -0.62, -1.45);
 const DEFAULT_CARRY = { gripHeight: 0.16, povScale: 1.5 };
 // The arm is modeled hanging along -Y. A -90-degree X rotation points it
