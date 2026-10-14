@@ -8,42 +8,6 @@ import { DiggableSand } from './DiggableSand.js';
 
 const WORLD_SIZE = 44;
 
-// A radial grid gives each colored patch enough geometry to follow the
-// terrain's curved depressions. The old CircleGeometry had only a center
-// and an outer ring, so it would bridge across newly dug holes.
-function makeSandPatchGeometry() {
-  const rings = 12;
-  const segments = 48;
-  const vertices = [0, 0, 0]; // center
-  const indices = [];
-
-  for (let ring = 1; ring <= rings; ring++) {
-    const radius = ring / rings;
-    for (let segment = 0; segment < segments; segment++) {
-      const angle = segment / segments * Math.PI * 2;
-      vertices.push(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
-    }
-  }
-  for (let segment = 0; segment < segments; segment++) {
-    indices.push(0, 1 + segment, 1 + (segment + 1) % segments);
-  }
-  for (let ring = 1; ring < rings; ring++) {
-    const inside = 1 + (ring - 1) * segments;
-    const outside = inside + segments;
-    for (let segment = 0; segment < segments; segment++) {
-      const next = (segment + 1) % segments;
-      indices.push(inside + segment, outside + segment, outside + next);
-      indices.push(inside + segment, outside + next, inside + next);
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
-  return geometry;
-}
-
 export const WORLD_NAMES = Object.freeze({ '01': 'はじまりの草原', '02': '海辺の砂浜' });
 
 function seededRandom(seed = 4389) {
@@ -122,7 +86,10 @@ export class World {
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(WORLD_SIZE, landDepth),
-      new THREE.MeshStandardMaterial({ color: isBeach ? 0xe7d3ac : 0xb3d9a4, roughness: 1, metalness: 0 }),
+      // WORLD 02 paints the original sand base and its 26 colored patterns
+      // directly into vertex colors. One ground mesh means digging cannot
+      // cover or hide the patterns with overlapping decorative planes.
+      new THREE.MeshStandardMaterial({ color: isBeach ? 0xffffff : 0xb3d9a4, roughness: 1, metalness: 0 }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(0, -0.037, landCenterZ);
@@ -154,21 +121,22 @@ export class World {
   }
 
   createBeachPatches() {
-    // Sandy colour variation: no meadow patches, green grass, or grass geometry.
+    // Keep the exact deterministic centers, sizes and colors of the
+    // original 26 circular sand patterns, but paint them into the beach
+    // geometry itself. Separate overlay planes can be occluded by dug
+    // terrain (or cover it); vertex colors cannot.
     const rand = seededRandom(921);
-    const patchGeometry = makeSandPatchGeometry();
     const colours = [0xeddcb9, 0xdfc496, 0xe3ca9f];
-    const materials = colours.map((color) => new THREE.MeshBasicMaterial({ color, depthWrite: false }));
     for (let i = 0; i < 26; i++) {
-      const patch = new THREE.Mesh(patchGeometry.clone(), materials[i % materials.length]);
-      patch.name = 'SandPatch';
-      patch.rotation.x = -Math.PI / 2;
-      patch.position.set((rand() - 0.5) * 39, -0.025 + (i % 2) * 0.001, 1.8 + rand() * 18.3);
-      patch.scale.set(0.7 + rand() * 1.8, 0.65 + rand() * 1.2, 1);
-      this.beachPatches.push(patch);
-      this.scene.add(patch);
+      this.beachPatches.push({
+        x: (rand() - 0.5) * 39,
+        z: 1.8 + rand() * 18.3,
+        radiusX: 0.7 + rand() * 1.8,
+        radiusZ: 0.65 + rand() * 1.2,
+        color: colours[i % colours.length],
+      });
     }
-    patchGeometry.dispose(); // Each patch owns its own deformable clone.
+    this.diggableSand.setColorPatches(this.beachPatches);
   }
 
   createSea() {
@@ -369,38 +337,9 @@ export class World {
   }
 
   digAt(x, z) {
-    // A WORLD 01 meadow has no shovel and remains unchanged.
-    if (!this.diggableSand?.dig(x, z, this.content.children)) return false;
-    this.updateBeachPatchesAfterDig(x, z);
-    return true;
-  }
-
-  updateBeachPatchesAfterDig(x, z) {
-    // Keep the original colors, shapes and positions of all 26 patterns.
-    // Only patch vertices near this hole need resampling; the patches
-    // remain visible and conform to the real triangulated beach surface.
-    for (const patch of this.beachPatches) {
-      const maxRadius = Math.max(patch.scale.x, patch.scale.y);
-      if (Math.hypot(x - patch.position.x, z - patch.position.z) > 0.91 + maxRadius) continue;
-
-      const positions = patch.geometry.getAttribute('position');
-      let changed = false;
-      for (let i = 0; i < positions.count; i++) {
-        const worldX = patch.position.x + positions.getX(i) * patch.scale.x;
-        const worldZ = patch.position.z - positions.getY(i) * patch.scale.y;
-        // Match the height of the rendered triangles rather than the
-        // analytic hole function, avoiding a flat 'lid' over the cavity.
-        const height = this.diggableSand.renderedHeightAt(worldX, worldZ);
-        if (Math.abs(positions.getZ(i) - height) < 1e-6) continue;
-        positions.setZ(i, height);
-        changed = true;
-      }
-      if (changed) {
-        positions.needsUpdate = true;
-        patch.geometry.computeBoundingSphere();
-        patch.geometry.computeBoundingBox();
-      }
-    }
+    // The sand patterns are part of the same vertex colors as the ground,
+    // so digging never needs to remove or hide a separate mesh.
+    return this.diggableSand?.dig(x, z, this.content.children) ?? false;
   }
 
   getGroundOffsetAt(x, z) {
