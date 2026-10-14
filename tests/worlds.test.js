@@ -67,11 +67,14 @@ test('WORLD 02 is a beach without any meadow grass or green meadow patches', () 
   assert.equal(find(scene, 'MeadowEarth'), undefined);
   assert.equal(find(scene, 'MeadowGround'), undefined);
 
-  const sandPatches = scene.children.filter((object) => object.name === 'SandPatch');
-  assert.equal(sandPatches.length, 26);
-  for (const patch of sandPatches) {
-    assert.ok(patch.position.z > 0, 'sand variation remains on land');
+  assert.equal(scene.children.filter((object) => object.name === 'SandPatch').length, 0,
+    'sand motifs are baked into the actual beach ground, not overlay planes');
+  assert.equal(world.beachPatches.length, 26);
+  for (const patch of world.beachPatches) {
+    assert.ok(patch.z > 0, 'sand pattern remains on land');
+    assert.ok(patch.radiusX > 0 && patch.radiusZ > 0);
   }
+  assert.ok(beach.geometry.getAttribute('color'), 'beach contains colored motif vertices');
 
   const normalWorld = new World(new THREE.Scene(), '01');
   assert.equal(normalWorld.waves.length, 0);
