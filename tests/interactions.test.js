@@ -164,18 +164,21 @@ test('S actions support reusable registry IDs and an individual action override'
   registerHeldAction('testSparkleAction', (controller, item) => {
     assert.equal(controller, interaction);
     item.userData.sparkles = (item.userData.sparkles ?? 0) + 1;
-  });
+  }, '光らせる');
   flower.userData.actionId = 'testSparkleAction';
+  assert.match(interaction.getHint(), /S：光らせる/);
   assert.equal(interaction.action(), true);
   assert.equal(flower.userData.sparkles, 1, 'registered named action is invoked');
   assert.equal(interaction.swingRemaining, 0, 'custom action need not perform the shared shake');
 
   let uniqueCount = 0;
+  flower.userData.actionLabel = '咲かせる';
   flower.userData.onAction = (controller, item) => {
     assert.equal(controller, interaction);
     assert.equal(item, flower);
     uniqueCount += 1;
   };
+  assert.match(interaction.getHint(), /S：咲かせる/);
   assert.equal(interaction.action(), true);
   assert.equal(uniqueCount, 1, 'individual handler takes precedence over registered action');
   assert.equal(flower.userData.sparkles, 1);
