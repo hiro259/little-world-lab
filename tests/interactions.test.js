@@ -5,6 +5,7 @@ import { World } from '../src/world/World.js';
 import { Player } from '../src/player/Player.js';
 import { InteractionController } from '../src/game/InteractionController.js';
 import { createFlower } from '../src/objects/Flower.js';
+import { registerHeldAction, performHeldAction } from '../src/game/HeldActions.js';
 
 function setup(worldId = '01') {
   const scene = new THREE.Scene();
@@ -50,7 +51,9 @@ test('A picks up a mushroom, S shakes it, A tosses it to replant elsewhere', () 
   assert.equal(interaction.cameraItem.visible, true, 'held item appears in POV');
   assert.equal(interaction.action(), true);
   interaction.update(0.08, true);
-  assert.notEqual(player.rightArm.rotation.z, 0, 'S swings the carried item');
+  assert.notEqual(player.rightArm.rotation.x, 0, 'S pitches the carrying arm vertically');
+  assert.equal(player.rightArm.rotation.z, 0, 'S must not swing sideways into the face');
+  assert.equal(interaction.cameraItem.rotation.z, 0, 'POV must not roll the held object sideways');
 
   // Transport the mushroom to another location before planting.
   player.group.position.set(7, 0, 5);
@@ -60,6 +63,7 @@ test('A picks up a mushroom, S shakes it, A tosses it to replant elsewhere', () 
   assert.equal(interaction.cameraItem.children.length, 0);
   assert.equal(interaction.cameraItem.visible, false);
   assert.equal(player.rightArm.rotation.z, 0);
+  assert.equal(player.rightArm.rotation.x, 0, 'release resets the carrying arm');
   assert.equal(mushroom.parent, world.content);
   assert.equal(mushroom.userData.isTossing, true);
   interaction.update(0.5);
@@ -120,4 +124,66 @@ test('only one object may be carried at a time and held item persists between ca
   assert.equal(interaction.cameraItem.visible, true);
   assert.equal(interaction.cameraItem.children.length, 1);
   assert.equal(world.content.children.filter((item) => item.name === 'Mushroom').length, 3);
+});
+
+test('S makes both flower and mushroom bob vertically instead of swinging across the face', () => {
+  for (const type of ['Flower', 'Mushroom']) {
+    const { world, player, interaction } = setup();
+    const object = world.content.children.find((item) => item.name === type);
+    assert.equal(object.userData.actionId, 'verticalShake', `${type} uses the shared vertical action`);
+    player.group.position.copy(object.position);
+    assert.equal(interaction.interact(), true);
+    interaction.update(0, false);
+    const itemY = object.position.y;
+    const cameraY = interaction.cameraItem.position.y;
+
+    assert.equal(interaction.action(), true);
+    interaction.update(0.07, true);
+    assert.notEqual(object.position.y, itemY, `${type} moves up/down in third person`);
+    assert.notEqual(interaction.cameraItem.position.y, cameraY, `${type} moves up/down in POV`);
+    assert.equal(player.rightArm.rotation.z, 0, `${type} arm should never rotate laterally`);
+    assert.equal(interaction.cameraItem.rotation.z, 0, `${type} POV item should never roll sideways`);
+    assert.ok(object.position.x >= 0.25, 'held item stays on the right-hand side');
+    assert.ok(player.rightArm.rotation.x >= 0 && player.rightArm.rotation.x <= 0.45,
+      'small forward/backward pitch is limited to avoid the head');
+
+    interaction.update(1, true);
+    assert.equal(interaction.swingRemaining, 0, 'shared action completes');
+    assert.equal(object.position.y, itemY, 'item returns to neutral carrying height');
+    assert.equal(interaction.cameraItem.position.y, cameraY, 'POV item returns to neutral height');
+    assert.equal(player.rightArm.rotation.z, 0);
+  }
+});
+
+test('S actions support reusable registry IDs and an individual action override', () => {
+  const { world, player, interaction } = setup();
+  const flower = world.content.children.find((item) => item.name === 'Flower');
+  player.group.position.copy(flower.position);
+  assert.equal(interaction.interact(), true);
+
+  registerHeldAction('testSparkleAction', (controller, item) => {
+    assert.equal(controller, interaction);
+    item.userData.sparkles = (item.userData.sparkles ?? 0) + 1;
+  });
+  flower.userData.actionId = 'testSparkleAction';
+  assert.equal(interaction.action(), true);
+  assert.equal(flower.userData.sparkles, 1, 'registered named action is invoked');
+  assert.equal(interaction.swingRemaining, 0, 'custom action need not perform the shared shake');
+
+  let uniqueCount = 0;
+  flower.userData.onAction = (controller, item) => {
+    assert.equal(controller, interaction);
+    assert.equal(item, flower);
+    uniqueCount += 1;
+  };
+  assert.equal(interaction.action(), true);
+  assert.equal(uniqueCount, 1, 'individual handler takes precedence over registered action');
+  assert.equal(flower.userData.sparkles, 1);
+
+  delete flower.userData.onAction;
+  flower.userData.actionId = 'missingAction';
+  assert.equal(interaction.action(), false, 'unknown action IDs fail safely');
+  assert.equal(performHeldAction(interaction, null), false);
+  assert.throws(() => registerHeldAction('', () => {}), TypeError);
+  assert.throws(() => registerHeldAction('broken', null), TypeError);
 });
