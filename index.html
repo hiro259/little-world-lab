@@ -19,12 +19,13 @@
             <small>ことばで育つ、ちいさな世界</small>
           </span>
         </div>
-        <div class="world-label" aria-label="ワールド バージョン 0.1">
+        <button class="world-label" id="world-switch" type="button" aria-label="現在WORLD 01 はじまりの草原。クリックでWORLD 02に切り替える" title="クリックしてワールドを切り替える">
           <span class="world-label__dot" aria-hidden="true"></span>
-          <span>WORLD 01</span>
-          <span class="world-label__divider"></span>
-          <span>はじまりの草原</span>
-        </div>
+          <span data-world-number>WORLD 01</span>
+          <span class="world-label__divider" aria-hidden="true"></span>
+          <span class="world-label__name" data-world-name>はじまりの草原</span>
+          <span class="world-label__switch" aria-hidden="true">⇄</span>
+        </button>
       </header>
 
       <footer class="hud hud--bottom">
