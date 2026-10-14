@@ -101,18 +101,35 @@ test('flower can be picked up and planted, and a per-object action can override 
   assert.equal(freshFlower.name, 'Flower');
 });
 
-test('WORLD 02 mushrooms can be planted on beach but not out into the sea', () => {
-  const { world, player, interaction } = setup('02');
-  assert.equal(world.content.children.filter((item) => item.name === 'Flower').length, 0);
-  const mushroom = world.content.children.find((item) => item.name === 'Mushroom');
-  player.group.position.copy(mushroom.position);
-  assert.equal(interaction.interact(), true);
-  player.group.position.set(0, 0, world.minWalkZ);
-  player.setFacing(Math.PI); // straight toward the sea
-  assert.equal(interaction.plant(), true);
-  interaction.update(0.5);
-  assert.ok(mushroom.position.z > 0, 'cannot place a mushroom in water');
-  assert.ok(mushroom.position.z >= world.minWalkZ + 0.28);
+test('WORLD 02 clams and crabs can be picked up, shaken and released onto sand, never into the sea', () => {
+  for (const [type, nearbyPrompt] of [['Clam', 'A：拾う'], ['Crab', 'A：捕まえる']]) {
+    const { world, player, interaction } = setup('02');
+    assert.equal(world.content.children.filter((item) => item.name === 'Mushroom').length, 0);
+    const item = world.content.children.find((entry) => entry.name === type);
+    assert.ok(item);
+    player.group.position.copy(item.position);
+
+    assert.equal(interaction.getHint(), nearbyPrompt);
+    assert.equal(interaction.interact(), true);
+    assert.equal(interaction.held, item);
+    assert.equal(item.userData.isHeld, true);
+    assert.equal(item.userData.actionId, 'verticalShake');
+    assert.match(interaction.getHint(), /A：離す/);
+    assert.match(interaction.getHint(), /S：振る/);
+    assert.equal(interaction.action(), true, 'the common S action works');
+    interaction.update(0.07, true);
+    assert.ok(interaction.swingRemaining > 0);
+
+    player.group.position.set(0, 0, world.minWalkZ);
+    player.setFacing(Math.PI); // toward the ocean
+    assert.equal(interaction.interact(), true, 'second A releases the creature');
+    assert.equal(item.userData.isHeld, false);
+    assert.equal(item.userData.isTossing, true);
+    interaction.update(0.5);
+    assert.equal(item.userData.isTossing, false);
+    assert.ok(item.position.z >= world.minWalkZ + 0.28,
+      `${type} remains on sand rather than being dropped into the sea`);
+  }
 });
 
 test('only one object may be carried at a time and held item persists between camera modes', () => {
