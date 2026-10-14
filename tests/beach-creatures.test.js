@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { World } from '../src/world/World.js';
 import { Player } from '../src/player/Player.js';
 import { InteractionController } from '../src/game/InteractionController.js';
+import { OrbitCamera } from '../src/game/OrbitCamera.js';
 import { createClam } from '../src/objects/Clam.js';
 import { createCrab } from '../src/objects/Crab.js';
 
@@ -156,4 +157,71 @@ test('new crabs expose a reusable animation sync hook for POV without custom S a
   animal.update(0.14);
   animal.mesh.userData.syncHeldPreview(clone);
   assert.equal(clone.getObjectByName('CrabLegL1').rotation.z, leg.rotation.z);
+});
+
+test('catching a crab preserves its world-facing direction, not the player facing', () => {
+  const near = (a, b) => Math.abs(a.dot(b)) > 1 - 1e-9;
+  const worldY = new THREE.Vector3(0, 1, 0);
+
+  for (const playerYaw of [0, 0.75, Math.PI, -1.2]) {
+    for (const crabYaw of [0, 1.1, -2.1]) {
+      const { world, player, camera, interactions } = beachSetup();
+      const crab = world.content.children.find((item) => item.name === 'Crab');
+      player.group.position.copy(crab.position);
+      player.setFacing(playerYaw);
+      crab.rotation.y = crabYaw;
+      const before = crab.getWorldQuaternion(new THREE.Quaternion());
+
+      assert.equal(interactions.interact(), true);
+      const held = crab.getWorldQuaternion(new THREE.Quaternion());
+      assert.ok(near(held, before),
+        `pickup changed the crab heading: player=${playerYaw} crab=${crabYaw}`);
+
+      // A vertical S shake must not turn a live animal onto its side.
+      assert.equal(interactions.action(), true);
+      world.update(0.08, {});
+      interactions.update(0.08, false);
+      assert.ok(near(crab.getWorldQuaternion(new THREE.Quaternion()), before),
+        'the crab orientation stays unchanged while the arm bobs up and down');
+      assert.ok(crab.getWorldQuaternion(new THREE.Quaternion())
+        .dot(new THREE.Quaternion().setFromAxisAngle(worldY, crabYaw)) > 1 - 1e-9);
+
+      // POV copy is camera-attached but must point in the same WORLD
+      // direction as the third-person animal (when viewing straight ahead).
+      const orbit = new OrbitCamera(camera);
+      orbit.setFirstPerson(true, player.facing);
+      orbit.follow(0, player.group.position);
+      interactions.update(0.7, true); // let the shake finish
+      camera.updateMatrixWorld(true);
+      const preview = interactions.cameraItem.children[0];
+      assert.ok(near(preview.getWorldQuaternion(new THREE.Quaternion()),
+        crab.getWorldQuaternion(new THREE.Quaternion())),
+        'POV facing should match the third-person crab');
+
+      // Turning while carrying rotates the crab WITH the player but never
+      // suddenly resets it to the player's heading.
+      const relative = new THREE.Quaternion().setFromAxisAngle(worldY, crabYaw - playerYaw);
+      player.setFacing(playerYaw + 0.9);
+      orbit.setFirstPerson(false);
+      orbit.setFirstPerson(true, player.facing);
+      orbit.follow(0, player.group.position);
+      interactions.update(0.016, true);
+      const expected = player.avatar.getWorldQuaternion(new THREE.Quaternion()).multiply(relative);
+      assert.ok(near(crab.getWorldQuaternion(new THREE.Quaternion()), expected),
+        'carried crab preserves its heading relative to the avatar after a turn');
+      assert.ok(near(preview.getWorldQuaternion(new THREE.Quaternion()), expected),
+        'POV and third-person facing agree after the player turns');
+
+      const atRelease = crab.getWorldQuaternion(new THREE.Quaternion());
+      assert.equal(interactions.interact(), true);
+      assert.ok(near(crab.getWorldQuaternion(new THREE.Quaternion()), atRelease),
+        'releasing onto sand must not rotate the crab');
+      interactions.update(0.50, false);
+      assert.ok(near(crab.getWorldQuaternion(new THREE.Quaternion()), atRelease),
+        'crab remains upright and facing the same direction after landing');
+      assert.equal(crab.userData.isHeld, false);
+      assert.equal(crab.userData.isTossing, false);
+      assert.ok(crab.position.z >= world.minWalkZ);
+    }
+  }
 });
