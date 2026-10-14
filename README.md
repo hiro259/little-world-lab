@@ -13,6 +13,15 @@ A tiny 3D world built together with AI.
 
 No backend, login, multiplayer, or external 3D assets are required.
 
+## Worlds
+
+Click the **WORLD** badge in the top-right corner (or focus it and press Enter/Space) to switch between:
+
+- **WORLD 01 — はじまりの草原:** the original 44×44 grassy square, with three tiny mushrooms.
+- **WORLD 02 — 海辺の砂浜:** the same 44×44 square, split **half sandy beach (+Z) / half sea (-Z)**. There is **no grass** in WORLD 02; pale sand patches, a wet shoreline, and three animated white foam breakers make the scenery distinct. The waves gently wash toward the sand and then recede.
+
+The selection is kept in the URL (WORLD 02 uses `?world=02`). Switching worlds reloads the scene to start from a known, safe position. WORLD 02 starts on land and prevents walking into the ocean; swimming is not implemented yet. You can share the link to a specific world.
+
 ## Requirements
 
 - Node.js **22.12+** (or Node.js 20.19+)
@@ -69,13 +78,13 @@ No environment variables or server-side components are needed. Cloudflare setup 
       player/
         Player.js               Character mesh, movement and walk animation
       world/
-        World.js                Grass island, three mushrooms, object slots
+        World.js                Two selectable worlds: meadow or sand/ocean, tide animation, mushrooms
       objects/
         Mushroom.js             Procedural low-poly mushroom model
 
 ## Adding something to the world
 
-The initial scene contains **just three tiny mushrooms** in one corner of the meadow, and no animals, trees, houses, or ponds. Those larger changes will be part of the interactive presentation.
+Both worlds currently contain **just three tiny mushrooms** on the land, and no animals, trees, houses, or ponds. WORLD 01 keeps its original meadow. WORLD 02 replaces all its grass with sand, ocean, and animated surf; later audience requests can add more objects. Those larger changes will be part of the interactive presentation.
 
 `World.addObject(item, position)` provides an entry point:
 
@@ -93,7 +102,7 @@ It also accepts an object of shape `{ mesh, update(delta, context) }` for simple
 2. Create a feature branch.
 3. Make the change, run `npm run build`, and open a PR.
 4. Preview it and merge to `main` when ready.
-5. Cloudflare Pages will publish the new `main` version once Issue #2 is set up. Visitors refresh their browsers to see it.
+5. Cloudflare Pages publishes the new `main` version after each merge. Visitors refresh their browsers to see it.
 
 For safety, do not push work-in-progress features directly to `main`.
 

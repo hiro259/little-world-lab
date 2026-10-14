@@ -3,6 +3,8 @@ import { createMushroom } from '../objects/Mushroom.js';
 
 const WORLD_SIZE = 44;
 
+export const WORLD_NAMES = Object.freeze({ '01': 'はじまりの草原', '02': '海辺の砂浜' });
+
 function seededRandom(seed = 4389) {
   let value = seed;
   return () => {
@@ -31,10 +33,15 @@ function makeCloud(x, y, z, size) {
 }
 
 export class World {
-  constructor(scene) {
+  constructor(scene, worldId = '01') {
     this.scene = scene;
+    this.id = worldId === '02' ? '02' : '01';
     this.size = WORLD_SIZE;
     this.limit = WORLD_SIZE / 2 - 1.3;
+    this.minWalkZ = this.id === '02' ? 1.45 : -this.limit;
+    this.spawnZ = this.id === '02' ? 6.5 : 0;
+    this.waves = [];
+    this.shoreWash = null;
     this.content = new THREE.Group();
     this.content.name = 'AddedObjects';
     this.scene.add(this.content);
@@ -49,26 +56,36 @@ export class World {
   }
 
   createTerrain() {
+    const isBeach = this.id === '02';
+    const landDepth = isBeach ? WORLD_SIZE / 2 : WORLD_SIZE;
+    const landCenterZ = isBeach ? WORLD_SIZE / 4 : 0;
+
     const earth = new THREE.Mesh(
-      new THREE.BoxGeometry(WORLD_SIZE, 0.85, WORLD_SIZE),
-      new THREE.MeshStandardMaterial({ color: 0xa4b794, roughness: 1 }),
+      new THREE.BoxGeometry(WORLD_SIZE, 0.85, landDepth),
+      new THREE.MeshStandardMaterial({ color: isBeach ? 0xc7ad81 : 0xa4b794, roughness: 1 }),
     );
-    earth.position.y = -0.47;
+    earth.position.set(0, -0.47, landCenterZ);
     earth.receiveShadow = true;
-    earth.name = 'MeadowEarth';
+    earth.name = isBeach ? 'BeachEarth' : 'MeadowEarth';
     this.scene.add(earth);
 
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE),
-      new THREE.MeshStandardMaterial({ color: 0xb3d9a4, roughness: 1, metalness: 0 }),
+      new THREE.PlaneGeometry(WORLD_SIZE, landDepth),
+      new THREE.MeshStandardMaterial({ color: isBeach ? 0xe7d3ac : 0xb3d9a4, roughness: 1, metalness: 0 }),
     );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.037;
+    ground.position.set(0, -0.037, landCenterZ);
     ground.receiveShadow = true;
-    ground.name = 'MeadowGround';
+    ground.name = isBeach ? 'BeachGround' : 'MeadowGround';
     this.scene.add(ground);
 
-    // Large, flat patches gently break up the grass colour.
+    if (isBeach) {
+      this.createBeachPatches();
+      this.createSea();
+      return;
+    }
+
+    // WORLD 01 keeps its original grassy patches.
     const rand = seededRandom(319);
     const patchGeometry = new THREE.CircleGeometry(1, 16);
     const patchMaterials = [
@@ -84,7 +101,110 @@ export class World {
     }
   }
 
+  createBeachPatches() {
+    // Sandy colour variation: no meadow patches, green grass, or grass geometry.
+    const rand = seededRandom(921);
+    const patchGeometry = new THREE.CircleGeometry(1, 16);
+    const colours = [0xeddcb9, 0xdfc496, 0xe3ca9f];
+    const materials = colours.map((color) => new THREE.MeshBasicMaterial({ color, depthWrite: false }));
+    for (let i = 0; i < 26; i++) {
+      const patch = new THREE.Mesh(patchGeometry, materials[i % materials.length]);
+      patch.name = 'SandPatch';
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.set((rand() - 0.5) * 39, -0.025 + (i % 2) * 0.001, 1.8 + rand() * 18.3);
+      patch.scale.set(0.7 + rand() * 1.8, 0.65 + rand() * 1.2, 1);
+      this.scene.add(patch);
+    }
+  }
+
+  createSea() {
+    const half = WORLD_SIZE / 2;
+    // The ocean and beach each occupy exactly half of the original square.
+    const seabed = new THREE.Mesh(
+      new THREE.BoxGeometry(WORLD_SIZE, 0.85, half),
+      new THREE.MeshStandardMaterial({ color: 0x4d98a6, roughness: 1 }),
+    );
+    seabed.name = 'SeaBed';
+    seabed.position.set(0, -0.47, -half / 2);
+    seabed.receiveShadow = true;
+    this.scene.add(seabed);
+
+    const surface = new THREE.Mesh(
+      new THREE.PlaneGeometry(WORLD_SIZE, half),
+      new THREE.MeshStandardMaterial({ color: 0x72c8d9, transparent: true, opacity: 0.95, roughness: 0.35, metalness: 0.04 }),
+    );
+    surface.name = 'SeaSurface';
+    surface.rotation.x = -Math.PI / 2;
+    surface.position.set(0, -0.020, -half / 2);
+    surface.receiveShadow = true;
+    this.scene.add(surface);
+
+    // A thin pale strip suggests wet sand where water reaches the shore.
+    const shoreline = new THREE.Mesh(
+      new THREE.PlaneGeometry(WORLD_SIZE, 2.0),
+      new THREE.MeshStandardMaterial({ color: 0xf3dfb9, roughness: 1 }),
+    );
+    shoreline.name = 'SandyShore';
+    shoreline.rotation.x = -Math.PI / 2;
+    shoreline.position.set(0, -0.019, 1.0);
+    shoreline.receiveShadow = true;
+    this.scene.add(shoreline);
+
+    this.createWaveBands();
+  }
+
+  createWaveBands() {
+    // The translucent wash crosses z=0, so surf visibly reaches the beach
+    // and retreats. It remains decorative; land/ocean boundaries stay fixed.
+    this.shoreWash = new THREE.Mesh(
+      new THREE.PlaneGeometry(WORLD_SIZE, 1.25),
+      new THREE.MeshBasicMaterial({
+        color: 0xa4e5e5, transparent: true, opacity: 0.23, depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    this.shoreWash.name = 'ShoreWash';
+    this.shoreWash.rotation.x = -Math.PI / 2;
+    this.shoreWash.position.set(0, -0.012, -0.15);
+    this.shoreWash.renderOrder = 1;
+    this.scene.add(this.shoreWash);
+
+    const waves = [
+      { width: 41, depth: 0.18, z: -0.32, amplitude: 0.65, speed: 1.20, phase: 0.0, opacity: 0.43 },
+      { width: 36, depth: 0.14, z: -1.48, amplitude: 0.62, speed: 1.20, phase: -0.85, opacity: 0.31 },
+      { width: 30, depth: 0.12, z: -2.85, amplitude: 0.55, speed: 1.20, phase: -1.65, opacity: 0.22 },
+    ];
+    for (let i = 0; i < waves.length; i++) {
+      const spec = waves[i];
+      const geometry = new THREE.PlaneGeometry(spec.width, spec.depth, 24, 1);
+      // An irregular edge avoids completely ruler-straight foam lines.
+      const vertices = geometry.attributes.position;
+      for (let n = 0; n < vertices.count; n++) {
+        const x = vertices.getX(n);
+        const y = vertices.getY(n);
+        vertices.setY(n, y + Math.sin(x * 0.42 + i) * 0.07 + Math.sin(x * 1.06 + i * 2) * 0.025);
+      }
+      geometry.computeVertexNormals();
+
+      const foam = new THREE.Mesh(
+        geometry,
+        new THREE.MeshBasicMaterial({
+          color: 0xf4ffff, transparent: true, opacity: spec.opacity, depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+      );
+      foam.name = 'WaveBand';
+      foam.rotation.x = -Math.PI / 2;
+      foam.position.set(0, -0.009 + i * 0.001, spec.z);
+      foam.renderOrder = 2 + i;
+      foam.userData = { baseZ: spec.z, amplitude: spec.amplitude, speed: spec.speed, phase: spec.phase, baseOpacity: spec.opacity };
+      this.waves.push(foam);
+      this.scene.add(foam);
+    }
+  }
+
   createGrass() {
+    if (this.id === '02') return; // No green grass in the beach world.
     // Single instanced draw call: many small blades without loading textures.
     const random = seededRandom(293);
     const count = 240;
@@ -164,6 +284,19 @@ export class World {
     this.elapsedTime += dt;
     for (let i = 0; i < this.clouds.length; i++) {
       this.clouds[i].position.x += Math.sin(this.elapsedTime * 0.11 + i) * dt * 0.045;
+    }
+    // A gentle shared tide: foam advances and recedes, with staggered breakers.
+    if (this.shoreWash) {
+      const tide = Math.sin(this.elapsedTime * 1.20);
+      this.shoreWash.position.z = -0.15 + tide * 0.55;
+      this.shoreWash.material.opacity = 0.17 + (tide + 1) * 0.075;
+    }
+    for (const wave of this.waves) {
+      const { baseZ, amplitude, speed, phase, baseOpacity } = wave.userData;
+      const tide = Math.sin(this.elapsedTime * speed + phase);
+      wave.position.z = baseZ + tide * amplitude;
+      wave.scale.x = 1 + tide * 0.035;
+      wave.material.opacity = baseOpacity + (tide + 1) * 0.07;
     }
     for (const object of this.updatables) object.update(dt, context);
   }

@@ -89,7 +89,16 @@ body { overflow: hidden; }
   font-weight: 800;
   letter-spacing: .08em;
   white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  appearance: none;
+  font-family: inherit;
+  color: inherit;
+  transition: background-color .2s ease, transform .2s ease;
 }
+.world-label:hover { background: #ffffffee; transform: translateY(-1px); }
+.world-label:focus-visible { outline: 3px solid #598e78; outline-offset: 3px; }
+.world-label__switch { color: #638e7e; font-size: 17px; margin-left: 2px; }
 .world-label__dot { width: 9px; height: 9px; background: #64be86; border-radius: 50%; box-shadow: 0 0 0 4px #64be861d; }
 .world-label__divider { background: #cee3d8; width: 1px; height: 17px; }
 
@@ -179,7 +188,7 @@ body { overflow: hidden; }
   .brand__text strong { font-size: 12px; }
   .brand__text small { font-size: 9px; }
   .world-label { padding: 10px 11px; font-size: 9px; gap: 7px; }
-  .world-label__divider, .world-label span:last-child { display: none; }
+  .world-label__divider, .world-label__name { display: none; }
   .hud--bottom { align-items: flex-end; }
   .control-help { border-radius: 14px; }
   .control-help__summary { padding: 12px; }

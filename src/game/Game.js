@@ -5,7 +5,7 @@ import { Player } from '../player/Player.js';
 import { World } from '../world/World.js';
 
 export class Game {
-  constructor(container) {
+  constructor(container, worldId = '01') {
     if (!container) throw new Error('A game container is required.');
 
     this.container = container;
@@ -40,8 +40,9 @@ export class Game {
     this.scene.add(sun, sun.target);
 
     this.input = new Input();
-    this.world = new World(this.scene);
+    this.world = new World(this.scene, worldId);
     this.player = new Player();
+    this.player.group.position.z = this.world.spawnZ;
     this.scene.add(this.player.group);
     this.clock = new THREE.Clock();
 
@@ -102,6 +103,7 @@ export class Game {
       this.cameraOrbit.right,
       this.world.limit,
       this.input.isFirstPerson,
+      this.world.minWalkZ,
     );
 
     this.cameraOrbit.follow(dt, this.player.group.position, switchingPerspective);
