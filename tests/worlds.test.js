@@ -48,7 +48,8 @@ test('WORLD 02 is exactly half ocean and half land within the original square', 
   assert.ok(find(scene, 'ShoreWash'));
   assert.ok(world.shoreWash);
   assert.equal(find(scene, 'MeadowGround'), undefined);
-  assert.equal(world.content.children.length, 6);
+  assert.equal(world.content.children.length, 7); // three clams + three crabs + one shovel
+  assert.equal(world.content.children.filter((item) => item.name === 'Shovel').length, 1);
   assert.equal(world.content.children.filter((item) => item.name === 'Clam').length, 3);
   assert.equal(world.content.children.filter((item) => item.name === 'Crab').length, 3);
   assert.equal(world.content.children.filter((item) => item.name === 'Mushroom').length, 0);
