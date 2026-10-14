@@ -63,6 +63,34 @@ export class DiggableSand {
     return result;
   }
 
+  /**
+   * Interpolate the ACTUAL triangulated ground surface under a decorative
+   * sand patch. Sampling the rendered triangles (instead of the smooth
+   * analytic bowl) prevents the patch from crossing through the terrain
+   * or covering the hollow with a flat colored lid.
+   *
+   * PlaneGeometry vertices are ordered by rows from z=0 to z=22,
+   * with the diagonal running from each cell's bottom-left to top-right.
+   */
+  renderedHeightAt(x, z) {
+    const xGrid = THREE.MathUtils.clamp((x + SIZE_X / 2) * GRID_X / SIZE_X, 0, GRID_X);
+    const zGrid = THREE.MathUtils.clamp(z * GRID_Z / SIZE_Z, 0, GRID_Z);
+    const ix = Math.min(Math.floor(xGrid), GRID_X - 1);
+    const iz = Math.min(Math.floor(zGrid), GRID_Z - 1);
+    const fx = xGrid - ix;
+    const fz = zGrid - iz;
+    const vertices = this.ground.geometry.getAttribute('position');
+    const index = iz * (GRID_X + 1) + ix;
+    const a = vertices.getZ(index);                 // top-left
+    const b = vertices.getZ(index + GRID_X + 1);    // bottom-left
+    const c = vertices.getZ(index + GRID_X + 2);    // bottom-right
+    const d = vertices.getZ(index + 1);             // top-right
+    if (fx + fz <= 1) {
+      return a * (1 - fx - fz) + b * fz + d * fx;
+    }
+    return b * (1 - fx) + c * (fx + fz - 1) + d * (1 - fz);
+  }
+
   canDig(x, z, objects = []) {
     if (!Number.isFinite(x) || !Number.isFinite(z) || this.holes.length >= this.maxHoles) return false;
     // Stay on dry sand and away from corners, water, and the decorative shore.
