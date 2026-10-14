@@ -18,7 +18,7 @@ No backend, login, multiplayer, or external 3D assets are required.
 Click the **WORLD** badge in the top-right corner (or focus it and press Enter/Space) to switch between:
 
 - **WORLD 01 — はじまりの草原:** the original 44×44 grassy square, with three tiny mushrooms.
-- **WORLD 02 — 海辺の草原:** the same 44×44 square, split **half land (+Z) / half sea (-Z)**, with a small sandy shoreline and gentle surface ripples.
+- **WORLD 02 — 海辺の砂浜:** the same 44×44 square, split **half sandy beach (+Z) / half sea (-Z)**. There is **no grass** in WORLD 02; pale sand patches, a wet shoreline, and three animated white foam breakers make the scenery distinct. The waves gently wash toward the sand and then recede.
 
 The selection is kept in the URL (WORLD 02 uses `?world=02`). Switching worlds reloads the scene to start from a known, safe position. WORLD 02 starts on land and prevents walking into the ocean; swimming is not implemented yet. You can share the link to a specific world.
 
@@ -78,13 +78,13 @@ No environment variables or server-side components are needed. Cloudflare setup 
       player/
         Player.js               Character mesh, movement and walk animation
       world/
-        World.js                Two selectable square worlds, coast, mushrooms, object slots
+        World.js                Two selectable worlds: meadow or sand/ocean, tide animation, mushrooms
       objects/
         Mushroom.js             Procedural low-poly mushroom model
 
 ## Adding something to the world
 
-Both worlds currently contain **just three tiny mushrooms** on the land, and no animals, trees, houses, or ponds. The second world also has a sea and beach; later audience requests can add more objects. Those larger changes will be part of the interactive presentation.
+Both worlds currently contain **just three tiny mushrooms** on the land, and no animals, trees, houses, or ponds. WORLD 01 keeps its original meadow. WORLD 02 replaces all its grass with sand, ocean, and animated surf; later audience requests can add more objects. Those larger changes will be part of the interactive presentation.
 
 `World.addObject(item, position)` provides an entry point:
 
