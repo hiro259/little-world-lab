@@ -119,6 +119,7 @@ export class Game {
     if (this.interactionHint) {
       const hint = this.interactions.getHint();
       if (this.interactionHint.textContent !== hint) this.interactionHint.textContent = hint;
+      this.interactionHint.hidden = !hint;
     }
 
     this.world.update(dt, { player: this.player, camera: this.camera, world: this.world });
