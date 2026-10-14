@@ -8,6 +8,7 @@ export function createMushroom({ capColor = 0xd96b65, scale = 1 } = {}) {
   const group = new THREE.Group();
   group.name = 'Mushroom';
   group.userData.pickupType = 'mushroom';
+  group.userData.actionId = 'verticalShake'; // Shared S action; can be overridden per item.
 
   const stem = new THREE.Mesh(
     new THREE.CylinderGeometry(0.045, 0.068, 0.20, 7),
