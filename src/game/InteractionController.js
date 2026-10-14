@@ -4,7 +4,7 @@ import { performHeldAction, getHeldActionLabel } from './HeldActions.js';
 const PICKUP_DISTANCE = 1.65;
 const TOSS_DURATION = 0.38;
 const SWING_DURATION = 0.62;
-const LABELS = { mushroom: 'キノコ', flower: '花' };
+const LABELS = { mushroom: 'キノコ', flower: '花', clam: 'アサリ', crab: 'カニ' };
 // The right-hand grip is relative to the shoulder pivot. With the arm
 // stretched forward, local -Y points forward and local -Z points downward.
 // Each item's carry.gripHeight keeps a different length of stem below the hand.
@@ -27,6 +27,10 @@ export class InteractionController {
     this.world = world;
     this.player = player;
     this.held = null;
+    // Optional heading of an item relative to the avatar at the moment of
+    // pickup. Living beach creatures shouldn't suddenly turn to face the
+    // same direction as the player when attached to the carrying arm.
+    this.heldRelativeOrientation = null;
     this.swingRemaining = 0;
     this.tosses = [];
 
@@ -59,18 +63,34 @@ export class InteractionController {
     if (this.held) return this.plant();
     const object = this.findNearest();
     if (!object) return false;
+    const carry = object.userData.carry ?? DEFAULT_CARRY;
+    // Capture orientation BEFORE reparenting. Without this, the crab snaps
+    // to the avatar's heading when it enters the outstretched right hand.
+    this.heldRelativeOrientation = carry.preserveHeading
+      ? this.player.avatar.getWorldQuaternion(new THREE.Quaternion()).invert()
+        .multiply(object.getWorldQuaternion(new THREE.Quaternion()))
+      : null;
     this.held = object;
+    object.userData.isHeld = true;
     this.world.content.remove(object);
     this.player.rightArm.add(object);
-    // Align the mushroom/flower stalk with the modeled fingers. Placing
-    // all roots at one fixed location made short mushrooms and taller
-    // flowers appear to float or sink into the fist.
-    const carry = object.userData.carry ?? DEFAULT_CARRY;
+    // Apply the carry pose BEFORE computing the creature's local quaternion.
+    // Otherwise the arm's subsequent -90° pitch turns the crab on its side
+    // during the very frame in which it is caught.
+    this.player.rightArm.rotation.x = CARRY_ARM_ANGLE;
+    this.player.rightArm.rotation.z = 0;
+    // Align each item's grip with the modeled hand.
     const gripHeight = (carry.gripHeight ?? DEFAULT_CARRY.gripHeight) * object.scale.y;
     object.position.copy(HAND_GRIP_LOCAL);
     object.position.z = -gripHeight;
-    // The arm pitches forward -90°. Counter-rotate so the stalk stays up.
+    // The arm pitches forward -90°. Counter-rotate so the item stays
+    // upright. Creatures also retain their captured heading relative to
+    // the avatar, rather than abruptly rotating when being caught.
     object.rotation.set(-CARRY_ARM_ANGLE, 0, 0);
+    if (this.heldRelativeOrientation) {
+      object.quaternion.copy(this.player.rightArm.quaternion).invert()
+        .multiply(this.heldRelativeOrientation);
+    }
     this.cameraItem.clear();
     const preview = object.clone(true);
     // Preserve the item's +Y up and +Z front in camera coordinates.
@@ -78,6 +98,13 @@ export class InteractionController {
     // without an extra 180° flip.
     preview.position.set(0, 0, 0);
     preview.rotation.set(0, 0, 0);
+    if (this.heldRelativeOrientation) {
+      // POV camera looks down local -Z; the avatar faces +Z. This 180°
+      // basis conversion makes the POV crab face the same WORLD direction
+      // as the third-person crab, instead of visually reversing it.
+      preview.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
+        .multiply(this.heldRelativeOrientation);
+    }
     preview.scale.multiplyScalar(carry.povScale ?? DEFAULT_CARRY.povScale);
     this.cameraItem.position.fromArray(carry.povPosition ?? DEFAULT_HELD_CAMERA_POSITION.toArray());
     this.cameraItem.add(preview);
@@ -91,7 +118,16 @@ export class InteractionController {
   plant() {
     if (!this.held) return false;
     const object = this.held;
+    // Preserve heading when returning the creature from hand to ground.
+    // On release the animal will keep its current direction as the player
+    // may have turned while carrying it.
+    const landingOrientation = this.heldRelativeOrientation
+      ? this.player.avatar.getWorldQuaternion(new THREE.Quaternion())
+        .multiply(this.heldRelativeOrientation)
+      : null;
+    this.heldRelativeOrientation = null;
     this.held = null;
+    object.userData.isHeld = false;
     this.swingRemaining = 0;
     this.player.rightArm.rotation.z = 0;
     this.player.rightArm.rotation.x = 0;
@@ -113,8 +149,9 @@ export class InteractionController {
     this.world.content.add(object);
     object.position.copy(start);
     object.rotation.set(0, 0, 0);
+    if (landingOrientation) object.quaternion.copy(landingOrientation);
     object.userData.isTossing = true;
-    this.tosses.push({ object, start, end, elapsed: 0 });
+    this.tosses.push({ object, start, end, elapsed: 0, landingOrientation });
     return true;
   }
 
@@ -151,12 +188,22 @@ export class InteractionController {
       this.held.position.z = -gripHeight;
       // Keep the stems vertical as the outstretched arm bobs up and down.
       this.held.rotation.x = -this.player.rightArm.rotation.x;
+      if (this.heldRelativeOrientation) {
+        // Cancel out the arm's X pitch before applying the captured
+        // heading. This keeps the crab level during S-key shakes.
+        this.held.quaternion.copy(this.player.rightArm.quaternion).invert()
+          .multiply(this.heldRelativeOrientation);
+      }
 
       // POV uses the same up/down rhythm; never roll the item sideways.
       this.cameraItem.position.fromArray(carry.povPosition ?? DEFAULT_HELD_CAMERA_POSITION.toArray());
       this.cameraItem.position.y += shake * 0.15;
       this.cameraItem.rotation.x = shake * 0.13;
       this.cameraItem.rotation.z = 0;
+      // Animated pickups may synchronize moving parts of their first-person
+      // display copy. The crab uses this for legs/claws, while S stays the
+      // same shared vertical shake as flowers and mushrooms.
+      this.held.userData.syncHeldPreview?.(this.cameraItem.children[0]);
     } else {
       // Walking arm swing is controlled by Player when nothing is held.
       this.cameraItem.position.copy(DEFAULT_HELD_CAMERA_POSITION);
@@ -173,6 +220,7 @@ export class InteractionController {
       if (t === 1) {
         toss.object.position.copy(toss.end);
         toss.object.rotation.set(0, 0, 0);
+        if (toss.landingOrientation) toss.object.quaternion.copy(toss.landingOrientation);
         toss.object.userData.isTossing = false;
         this.tosses.splice(i, 1);
       }
@@ -180,9 +228,17 @@ export class InteractionController {
   }
 
   getHint() {
-    if (this.held) return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：植える　S：${getHeldActionLabel(this.held)}`;
+    if (this.held) {
+      const isBeachItem = ['crab', 'clam'].includes(this.held.userData.pickupType);
+      const verb = isBeachItem ? '離す' : '植える';
+      return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：${verb}　S：${getHeldActionLabel(this.held)}`;
+    }
     const nearest = this.findNearest();
-    if (nearest) return 'A：引っこ抜く';
+    if (nearest) {
+      if (nearest.userData.pickupType === 'crab') return 'A：捕まえる';
+      if (nearest.userData.pickupType === 'clam') return 'A：拾う';
+      return 'A：引っこ抜く';
+    }
     // Stay out of the way when there is nothing close enough to pick up.
     return '';
   }

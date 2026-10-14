@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "node --check src/main.js && node --check src/game/Game.js && node --check src/game/Input.js && node --check src/game/OrbitCamera.js && node --check tests/controls.test.js && node --check src/player/Player.js && node --check src/world/World.js && node --check src/objects/Mushroom.js && node --check tests/mushrooms.test.js && node --check tests/worlds.test.js && node --check src/objects/Flower.js && node --check src/game/InteractionController.js && node --check tests/interactions.test.js && node --check src/game/HeldActions.js",
+    "check": "node --check src/main.js && node --check src/game/Game.js && node --check src/game/Input.js && node --check src/game/OrbitCamera.js && node --check tests/controls.test.js && node --check src/player/Player.js && node --check src/world/World.js && node --check src/objects/Mushroom.js && node --check tests/mushrooms.test.js && node --check tests/worlds.test.js && node --check src/objects/Flower.js && node --check src/game/InteractionController.js && node --check tests/interactions.test.js && node --check src/game/HeldActions.js && node --check src/objects/Clam.js && node --check src/objects/Crab.js && node --check tests/beach-creatures.test.js",
     "test": "node --test"
   },
   "dependencies": {

@@ -18,7 +18,7 @@ No backend, login, multiplayer, or external 3D assets are required.
 Click the **WORLD** badge in the top-right corner (or focus it and press Enter/Space) to switch between:
 
 - **WORLD 01 — はじまりの草原:** the original 44×44 grassy square, with three tiny mushrooms and three pickable flowers.
-- **WORLD 02 — 海辺の砂浜:** the same 44×44 square, split **half sandy beach (+Z) / half sea (-Z)**. There is **no grass** in WORLD 02; pale sand patches, a wet shoreline, and three animated white foam breakers make the scenery distinct. The waves gently wash toward the sand and then recede.
+- **WORLD 02 — 海辺の砂浜:** the same 44×44 square, split **half sandy beach (+Z) / half sea (-Z)**. There is **no grass or mushroom** in WORLD 02. Three pickable clams and three gently side-stepping crabs inhabit the shore, beside the pale sand, wet shoreline and animated white foam breakers. The crab's legs and claws keep moving even when carried (including in POV).
 
 The selection is kept in the URL (WORLD 02 uses `?world=02`). Switching worlds reloads the scene to start from a known, safe position. WORLD 02 starts on land and prevents walking into the ocean; swimming is not implemented yet. You can share the link to a specific world.
 
@@ -41,8 +41,8 @@ Controls:
 - **Shift + ← / →:** rotate the camera/look left and right (without walking).
 - **Shift + ↑ / ↓:** change the camera angle / look up and down (without walking).
 - **Ctrl (press once):** toggle first-person POV on/off; release it before using arrows to avoid macOS shortcuts.
-- **A:** pull up a nearby mushroom or flower, then press again while holding it to toss it gently and plant it in a new spot.
-- **S:** swing the held item **up and down** while keeping it to the right of the face. Mushrooms and flowers share the `verticalShake` action. The action can be assigned by ID or overridden per item.
+- **A:** pull up a nearby mushroom or flower in WORLD 01, or pick up a clam / catch a crab in WORLD 02. Press A again to plant (meadow) or release onto sand (beach).
+- **S:** swing the held item **up and down** while keeping it to the right of the face. Mushrooms, flowers, clams and crabs all share the `verticalShake` action. The action can be assigned by ID or overridden per item.
 - **W / D:** reserved for future actions; no current effect.
 - Click the **操作方法** panel to collapse it into a small button; click again to expand.
 
@@ -81,14 +81,16 @@ No environment variables or server-side components are needed. Cloudflare setup 
       player/
         Player.js               Character mesh, movement and walk animation
       world/
-        World.js                Two selectable worlds: meadow or sand/ocean, tide animation, mushrooms
+        World.js                Two selectable worlds: meadow or sand/ocean, creatures and tide animation
       objects/
         Mushroom.js             Procedural low-poly mushroom model
         Flower.js               Procedural wildflower model (WORLD 01)
+        Clam.js                 Pickable bivalve shell (WORLD 02)
+        Crab.js                 Side-stepping crab with animated legs (WORLD 02)
 
 ## Adding something to the world
 
-Both worlds contain **three tiny mushrooms** on land; WORLD 01 also grows **three pickable flowers** alongside its existing grass. There are no animals, trees, houses, or ponds. WORLD 01 keeps its original meadow. WORLD 02 replaces all its grass with sand, ocean, and animated surf; later audience requests can add more objects. Those larger changes will be part of the interactive presentation.
+**WORLD 01** contains three tiny mushrooms and three pickable flowers beside its existing grass. **WORLD 02** contains three clams and three walking crabs (no mushrooms or flowers). Its crabs wander slowly across sand without entering the sea. Catching one stops its movement but not its leg animation, including in POV; releasing it allows it to walk again. Future requests can add more animals and props.
 
 `World.addObject(item, position)` provides an entry point:
 
@@ -119,7 +121,7 @@ item.userData.onAction = (controller, item) => {
 item.userData.actionLabel = '特殊アクション'; // hint for the unique action
 ```
 
-Items are picked up and replanted by `InteractionController`. Grass stays a single efficient `InstancedMesh`, and is not pickable.
+Items are picked up and replanted/released by `InteractionController`. Grass stays a single efficient `InstancedMesh`, and is not pickable. Animated items can define an optional `userData.syncHeldPreview(preview)` hook to animate their camera-attached POV copy. Crab locomotion and leg movement use the `{ mesh, update }` world update hook, so only locomotion pauses while the animal is carried.
 
 It also accepts an object of shape `{ mesh, update(delta, context) }` for simple animation/behavior. The game loop calls the registered item's `update` method every frame. Keep each new animal or prop in its own file under `src/objects/` when adding features (Issue #6 will expand this into a reusable template).
 

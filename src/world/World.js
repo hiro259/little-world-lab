@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { createMushroom } from '../objects/Mushroom.js';
 import { createFlower } from '../objects/Flower.js';
+import { createClam } from '../objects/Clam.js';
+import { createCrab } from '../objects/Crab.js';
 
 const WORLD_SIZE = 44;
 
@@ -53,8 +55,12 @@ export class World {
     this.createTerrain();
     this.createGrass();
     this.createSky();
-    this.createStarterMushrooms();
-    if (this.id === '01') this.createStarterFlowers();
+    if (this.id === '01') {
+      this.createStarterMushrooms();
+      this.createStarterFlowers();
+    } else {
+      this.createBeachCreatures();
+    }
   }
 
   createTerrain() {
@@ -275,6 +281,28 @@ export class World {
     ];
     for (const { position, petalColor, scale } of flowers) {
       this.addObject(createFlower({ petalColor, scale }), position);
+    }
+  }
+
+  createBeachCreatures() {
+    // WORLD 02 replaces its former mushrooms with three resting clams and
+    // three slow side-stepping crabs. All start above the sea boundary.
+    const clams = [
+      { position: [-4.0, -0.03, 2.9], shellColor: 0xefc8a4, scale: 1.05 },
+      { position: [1.5, -0.03, 3.7], shellColor: 0xe9b7af, scale: 0.92 },
+      { position: [6.8, -0.03, 2.8], shellColor: 0xdabbd0, scale: 1.12 },
+    ];
+    for (const { position, shellColor, scale } of clams) {
+      this.addObject(createClam({ shellColor, scale }), position);
+    }
+
+    const crabs = [
+      { position: [-6.5, -0.03, 5.1], shellColor: 0xe99172, scale: 1.00, phase: 0.4 },
+      { position: [3.8, -0.03, 4.8], shellColor: 0xf1a582, scale: 0.92, phase: 2.2 },
+      { position: [9.3, -0.03, 6.3], shellColor: 0xd97f68, scale: 1.10, phase: 4.1 },
+    ];
+    for (const { position, shellColor, scale, phase } of crabs) {
+      this.addObject(createCrab({ shellColor, scale, phase }), position);
     }
   }
 

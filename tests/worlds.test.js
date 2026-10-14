@@ -48,8 +48,12 @@ test('WORLD 02 is exactly half ocean and half land within the original square', 
   assert.ok(find(scene, 'ShoreWash'));
   assert.ok(world.shoreWash);
   assert.equal(find(scene, 'MeadowGround'), undefined);
-  assert.equal(world.content.children.length, 3);
-  assert.ok(world.content.children.every((mushroom) => mushroom.position.z > 1.55));
+  assert.equal(world.content.children.length, 6);
+  assert.equal(world.content.children.filter((item) => item.name === 'Clam').length, 3);
+  assert.equal(world.content.children.filter((item) => item.name === 'Crab').length, 3);
+  assert.equal(world.content.children.filter((item) => item.name === 'Mushroom').length, 0);
+  assert.equal(world.content.children.filter((item) => item.name === 'Flower').length, 0);
+  assert.ok(world.content.children.every((item) => item.position.z > 1.55));
 });
 
 test('WORLD 02 is a beach without any meadow grass or green meadow patches', () => {
