@@ -7,10 +7,12 @@ import { World } from '../src/world/World.js';
 test('the starter meadow contains exactly three mushrooms', () => {
   const scene = new THREE.Scene();
   const world = new World(scene);
-  assert.equal(world.content.children.length, 3);
+  const mushrooms = world.content.children.filter((item) => item.name === 'Mushroom');
+  assert.equal(mushrooms.length, 3);
+  assert.equal(world.content.children.filter((item) => item.name === 'Flower').length, 3);
 
   const positions = new Set();
-  for (const mushroom of world.content.children) {
+  for (const mushroom of mushrooms) {
     assert.equal(mushroom.name, 'Mushroom');
     assert.ok(Math.abs(mushroom.position.y + 0.03) < 1e-8);
     assert.ok(mushroom.position.length() < world.limit);
@@ -22,7 +24,7 @@ test('the starter meadow contains exactly three mushrooms', () => {
 
 test('mushrooms are shoe-sized and have shaded caps and spots', () => {
   const world = new World(new THREE.Scene());
-  for (const mushroom of world.content.children) {
+  for (const mushroom of world.content.children.filter((item) => item.name === 'Mushroom')) {
     const size = new THREE.Box3().setFromObject(mushroom).getSize(new THREE.Vector3());
     assert.ok(size.y > 0.20 && size.y < 0.45, `height ${size.y} should be about a shoe`);
     assert.ok(size.x < 0.5 && size.z < 0.5);
