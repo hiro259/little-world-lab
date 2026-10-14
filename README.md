@@ -17,7 +17,7 @@ No backend, login, multiplayer, or external 3D assets are required.
 
 Click the **WORLD** badge in the top-right corner (or focus it and press Enter/Space) to switch between:
 
-- **WORLD 01 — はじまりの草原:** the original 44×44 grassy square, with three tiny mushrooms.
+- **WORLD 01 — はじまりの草原:** the original 44×44 grassy square, with three tiny mushrooms and three pickable flowers.
 - **WORLD 02 — 海辺の砂浜:** the same 44×44 square, split **half sandy beach (+Z) / half sea (-Z)**. There is **no grass** in WORLD 02; pale sand patches, a wet shoreline, and three animated white foam breakers make the scenery distinct. The waves gently wash toward the sand and then recede.
 
 The selection is kept in the URL (WORLD 02 uses `?world=02`). Switching worlds reloads the scene to start from a known, safe position. WORLD 02 starts on land and prevents walking into the ocean; swimming is not implemented yet. You can share the link to a specific world.
@@ -37,12 +37,13 @@ Open the URL printed by Vite (usually http://localhost:5173/).
 
 Controls:
 
-- **WASD / arrow keys:** walk (relative to camera direction).
-- **Shift + ← / →:** rotate camera left / right around the player.
-- **Shift + ↑ / ↓:** raise / lower the camera viewing angle (with safe angle limits).
-- **Ctrl (press once):** toggle first-person Point of View (POV) mode on/off. Release Ctrl before using the arrows; Ctrl+arrows can trigger macOS desktop shortcuts.
-- **POV mode, ← / →:** look left/right; **↑ / ↓:** look up/down (with pitch limits).
-- **POV mode, WASD:** walk relative to the viewing direction. Arrow keys look around rather than walking.
+- **Arrow keys only:** move (relative to camera direction) in both normal and POV mode. WASD no longer moves.
+- **Shift + ← / →:** rotate the camera/look left and right (without walking).
+- **Shift + ↑ / ↓:** change the camera angle / look up and down (without walking).
+- **Ctrl (press once):** toggle first-person POV on/off; release it before using arrows to avoid macOS shortcuts.
+- **A:** pull up a nearby mushroom or flower, then press again while holding it to toss it gently and plant it in a new spot.
+- **S:** shake the held item. A custom `userData.onAction` handler can implement object-specific actions later.
+- **W / D:** reserved for future actions; no current effect.
 - Click the **操作方法** panel to collapse it into a small button; click again to expand.
 
 The camera continues to follow the character while orbiting. In POV mode the camera moves to the character's eye level and hides the avatar (so the head does not block the view); pressing Ctrl again restores the third-person camera. Refreshing resets the initial viewing angle.
@@ -74,17 +75,19 @@ No environment variables or server-side components are needed. Cloudflare setup 
       game/
         Game.js                 Three.js renderer, animation loop
         OrbitCamera.js          Player-relative orbit, camera follow, and POV look
-        Input.js                WASD movement, Shift orbit, and Ctrl POV toggle
+        Input.js                Arrow movement, Shift look, Ctrl POV, A/S actions
+        InteractionController.js Pick up, carry, shake and toss-to-plant behaviors
       player/
         Player.js               Character mesh, movement and walk animation
       world/
         World.js                Two selectable worlds: meadow or sand/ocean, tide animation, mushrooms
       objects/
         Mushroom.js             Procedural low-poly mushroom model
+        Flower.js               Procedural wildflower model (WORLD 01)
 
 ## Adding something to the world
 
-Both worlds currently contain **just three tiny mushrooms** on the land, and no animals, trees, houses, or ponds. WORLD 01 keeps its original meadow. WORLD 02 replaces all its grass with sand, ocean, and animated surf; later audience requests can add more objects. Those larger changes will be part of the interactive presentation.
+Both worlds contain **three tiny mushrooms** on land; WORLD 01 also grows **three pickable flowers** alongside its existing grass. There are no animals, trees, houses, or ponds. WORLD 01 keeps its original meadow. WORLD 02 replaces all its grass with sand, ocean, and animated surf; later audience requests can add more objects. Those larger changes will be part of the interactive presentation.
 
 `World.addObject(item, position)` provides an entry point:
 
@@ -93,6 +96,8 @@ const mesh = new THREE.Group();
 // Add your own basic-shape meshes to the group here.
 world.addObject(mesh, [3, 0, -2]);
 ```
+
+A pickable item's root Object3D has `userData.pickupType` and may define `userData.onAction(controller)` for a special S-key action. Items are picked up and replanted by `InteractionController`. Grass stays a single efficient `InstancedMesh`, and is not pickable.
 
 It also accepts an object of shape `{ mesh, update(delta, context) }` for simple animation/behavior. The game loop calls the registered item's `update` method every frame. Keep each new animal or prop in its own file under `src/objects/` when adding features (Issue #6 will expand this into a reusable template).
 
