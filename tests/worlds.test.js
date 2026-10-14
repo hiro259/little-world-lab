@@ -14,7 +14,8 @@ test('WORLD 01 remains the original square grassland with three mushrooms', () =
   assert.equal(world.size, 44);
   assert.equal(world.minWalkZ, -world.limit);
   assert.equal(world.spawnZ, 0);
-  assert.equal(world.content.children.length, 3);
+  assert.equal(world.content.children.length, 6); // 3 mushrooms + 3 flowers
+  assert.equal(world.content.children.filter((item) => item.name === 'Flower').length, 3);
   assert.ok(find(scene, 'MeadowGround'));
   assert.equal(find(scene, 'MeadowGround').geometry.parameters.height, 44);
   assert.equal(find(scene, 'SeaSurface'), undefined);
