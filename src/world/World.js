@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createMushroom } from '../objects/Mushroom.js';
+import { createFlower } from '../objects/Flower.js';
 
 const WORLD_SIZE = 44;
 
@@ -53,6 +54,7 @@ export class World {
     this.createGrass();
     this.createSky();
     this.createStarterMushrooms();
+    if (this.id === '01') this.createStarterFlowers();
   }
 
   createTerrain() {
@@ -261,6 +263,18 @@ export class World {
 
     for (const { position, scale, capColor } of mushrooms) {
       this.addObject(createMushroom({ capColor, scale }), position);
+    }
+  }
+
+  createStarterFlowers() {
+    // Only WORLD 01 grows flowers; WORLD 02 keeps its sandy coast.
+    const flowers = [
+      { position: [2.0, -0.03, 1.6], petalColor: 0xf6a5c1, scale: 1.00 },
+      { position: [-1.8, -0.03, -1.5], petalColor: 0xf4dc80, scale: 0.86 },
+      { position: [3.4, -0.03, -2.3], petalColor: 0xb9a3f3, scale: 1.12 },
+    ];
+    for (const { position, petalColor, scale } of flowers) {
+      this.addObject(createFlower({ petalColor, scale }), position);
     }
   }
 
