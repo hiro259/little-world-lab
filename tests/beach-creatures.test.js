@@ -183,8 +183,10 @@ test('catching a crab preserves its world-facing direction, not the player facin
       interactions.update(0.08, false);
       assert.ok(near(crab.getWorldQuaternion(new THREE.Quaternion()), before),
         'the crab orientation stays unchanged while the arm bobs up and down');
-      assert.ok(crab.getWorldQuaternion(new THREE.Quaternion())
-        .dot(new THREE.Quaternion().setFromAxisAngle(worldY, crabYaw)) > 1 - 1e-9);
+      // Quaternions q and -q represent the same orientation; compare
+      // absolute dot product to avoid rejecting visually identical poses.
+      assert.ok(near(crab.getWorldQuaternion(new THREE.Quaternion()),
+        new THREE.Quaternion().setFromAxisAngle(worldY, crabYaw)));
 
       // POV copy is camera-attached but must point in the same WORLD
       // direction as the third-person animal (when viewing straight ahead).
