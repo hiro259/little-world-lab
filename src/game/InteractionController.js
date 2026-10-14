@@ -131,7 +131,8 @@ export class InteractionController {
   getHint() {
     if (this.held) return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：植える　S：振る`;
     const nearest = this.findNearest();
-    if (nearest) return `A：${LABELS[nearest.userData.pickupType] ?? 'アイテム'}を引っこ抜く`;
-    return 'キノコや花に近づいて A：引っこ抜く';
+    if (nearest) return 'A：引っこ抜く';
+    // Stay out of the way when there is nothing close enough to pick up.
+    return '';
   }
 }
