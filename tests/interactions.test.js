@@ -46,6 +46,8 @@ test('A picks up a mushroom, S shakes it, A tosses it to replant elsewhere', () 
   assert.equal(interaction.interact(), true);
   assert.equal(interaction.held, mushroom);
   assert.equal(interaction.cameraItem.children.length, 1);
+  assert.deepEqual(interaction.cameraItem.children[0].position.toArray(), [0, 0, 0],
+    'the POV item should not inherit the hand-local offset');
 
   interaction.update(0.03, true);
   assert.equal(interaction.cameraItem.visible, true, 'held item appears in POV');
@@ -134,22 +136,26 @@ test('S makes both flower and mushroom bob vertically instead of swinging across
     player.group.position.copy(object.position);
     assert.equal(interaction.interact(), true);
     interaction.update(0, false);
-    const itemY = object.position.y;
+    const itemY = object.getWorldPosition(new THREE.Vector3()).y;
+    const localY = object.position.y;
     const cameraY = interaction.cameraItem.position.y;
 
     assert.equal(interaction.action(), true);
     interaction.update(0.07, true);
-    assert.notEqual(object.position.y, itemY, `${type} moves up/down in third person`);
+    assert.notEqual(object.getWorldPosition(new THREE.Vector3()).y, itemY, `${type} moves up/down in third person`);
+    assert.equal(object.position.y, localY, 'the grip stays fixed in the extended hand');
     assert.notEqual(interaction.cameraItem.position.y, cameraY, `${type} moves up/down in POV`);
     assert.equal(player.rightArm.rotation.z, 0, `${type} arm should never rotate laterally`);
     assert.equal(interaction.cameraItem.rotation.z, 0, `${type} POV item should never roll sideways`);
-    assert.ok(object.position.x >= 0.25, 'held item stays on the right-hand side');
-    assert.ok(player.rightArm.rotation.x >= 0 && player.rightArm.rotation.x <= 0.45,
-      'small forward/backward pitch is limited to avoid the head');
+    assert.ok(object.getWorldPosition(new THREE.Vector3()).x > player.group.position.x + 0.4,
+      'item stays to the side of the face');
+    assert.ok(Math.abs(player.rightArm.rotation.x + Math.PI / 2) <= 0.17,
+      'the arm keeps pointing forward during vertical shakes');
 
     interaction.update(1, true);
     assert.equal(interaction.swingRemaining, 0, 'shared action completes');
-    assert.equal(object.position.y, itemY, 'item returns to neutral carrying height');
+    assert.ok(Math.abs(object.getWorldPosition(new THREE.Vector3()).y - itemY) < 1e-8,
+      'item returns to neutral carrying height');
     assert.equal(interaction.cameraItem.position.y, cameraY, 'POV item returns to neutral height');
     assert.equal(player.rightArm.rotation.z, 0);
   }
@@ -189,4 +195,46 @@ test('S actions support reusable registry IDs and an individual action override'
   assert.equal(performHeldAction(interaction, null), false);
   assert.throws(() => registerHeldAction('', () => {}), TypeError);
   assert.throws(() => registerHeldAction('broken', null), TypeError);
+});
+
+test('A extends the right arm straight ahead and keeps the object in the hand while walking', () => {
+  for (const type of ['Flower', 'Mushroom']) {
+    const { world, player, interaction } = setup();
+    const object = world.content.children.find((item) => item.name === type);
+    player.group.position.copy(object.position);
+
+    assert.equal(interaction.interact(), true);
+    interaction.update(0.016, false);
+
+    assert.ok(Math.abs(player.rightArm.rotation.x + Math.PI / 2) < 1e-10,
+      `${type}: idle carrying arm must be exactly forward`);
+    assert.equal(player.rightArm.rotation.z, 0);
+
+    const armForward = new THREE.Vector3(0, -1, 0)
+      .applyQuaternion(player.rightArm.getWorldQuaternion(new THREE.Quaternion()));
+    const characterForward = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(player.avatar.getWorldQuaternion(new THREE.Quaternion()));
+    assert.ok(armForward.dot(characterForward) > 0.999,
+      'an outstretched arm points in the same horizontal direction as the character');
+
+    const heldWorld = object.getWorldPosition(new THREE.Vector3());
+    const playerWorld = player.group.getWorldPosition(new THREE.Vector3());
+    const direction = heldWorld.clone().sub(playerWorld);
+    const characterRight = new THREE.Vector3(1, 0, 0)
+      .applyQuaternion(player.avatar.getWorldQuaternion(new THREE.Quaternion()));
+    assert.ok(direction.dot(characterForward) > 0.4, 'held item is ahead of the character');
+    assert.ok(direction.dot(characterRight) > 0.4, 'held item stays beside the right hand');
+    assert.ok(heldWorld.y < playerWorld.y + 1.0, 'base of the item is held at hand height');
+
+    // Player applies walking arm swings before the interaction update.
+    player.update(0.12, { x: 0, y: 1 }, new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(1, 0, 0), world.limit);
+    interaction.update(0.12, false);
+    assert.ok(Math.abs(player.rightArm.rotation.x + Math.PI / 2) < 1e-10,
+      'carrying pose overrides regular walking arm animation');
+    assert.equal(player.rightArm.rotation.z, 0);
+
+    assert.equal(interaction.plant(), true);
+    assert.equal(player.rightArm.rotation.x, 0, 'placing the object releases the forward arm pose');
+  }
 });
