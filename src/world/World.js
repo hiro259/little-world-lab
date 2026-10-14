@@ -331,7 +331,18 @@ export class World {
 
   digAt(x, z) {
     // A WORLD 01 meadow has no shovel and remains unchanged.
-    return this.diggableSand?.dig(x, z, this.content.children) ?? false;
+    if (!this.diggableSand?.dig(x, z, this.content.children)) return false;
+    // Decorative sand patches are flat planes above the ground. Hide only
+    // overlapping patches so a newly excavated depression remains visible.
+    // Keeping their meshes in the scene preserves the original beach layout.
+    for (const patch of this.scene.children) {
+      if (patch.name !== 'SandPatch' || !patch.visible) continue;
+      const radius = 0.91 + Math.max(patch.scale.x, patch.scale.y);
+      if (Math.hypot(x - patch.position.x, z - patch.position.z) < radius) {
+        patch.visible = false;
+      }
+    }
+    return true;
   }
 
   getGroundOffsetAt(x, z) {
