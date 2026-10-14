@@ -5,6 +5,7 @@ export function createFlower({ petalColor = 0xf6a6c8, scale = 1 } = {}) {
   const flower = new THREE.Group();
   flower.name = 'Flower';
   flower.userData.pickupType = 'flower';
+  flower.userData.actionId = 'verticalShake'; // Shared S action; can be overridden per item.
 
   const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x5a9f67, roughness: 1 });
   const petalMaterial = new THREE.MeshStandardMaterial({ color: petalColor, roughness: 0.88, flatShading: true });
