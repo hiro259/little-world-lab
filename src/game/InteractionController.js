@@ -74,6 +74,11 @@ export class InteractionController {
     object.userData.isHeld = true;
     this.world.content.remove(object);
     this.player.rightArm.add(object);
+    // Apply the carry pose BEFORE computing the creature's local quaternion.
+    // Otherwise the arm's subsequent -90° pitch turns the crab on its side
+    // during the very frame in which it is caught.
+    this.player.rightArm.rotation.x = CARRY_ARM_ANGLE;
+    this.player.rightArm.rotation.z = 0;
     // Align each item's grip with the modeled hand.
     const gripHeight = (carry.gripHeight ?? DEFAULT_CARRY.gripHeight) * object.scale.y;
     object.position.copy(HAND_GRIP_LOCAL);
