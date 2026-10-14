@@ -109,6 +109,12 @@ export class Game {
       this.world.minWalkZ,
     );
 
+    // Let the player step down into real sand depressions rather than
+    // hovering above the hole. WORLD 01 always returns an offset of zero.
+    this.player.group.position.y = this.world.getGroundOffsetAt(
+      this.player.group.position.x,
+      this.player.group.position.z,
+    );
     this.cameraOrbit.follow(dt, this.player.group.position, switchingPerspective);
 
     for (const action of this.input.consumeActions()) {
