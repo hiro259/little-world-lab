@@ -44,13 +44,49 @@ export class DiggableSand {
     const original = ground.geometry;
     const geometry = new THREE.PlaneGeometry(SIZE_X, SIZE_Z, GRID_X, GRID_Z);
     const positions = geometry.getAttribute('position');
-    const colors = new Float32Array(positions.count * 3);
-    colors.fill(1);
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(positions.count * 3), 3));
     ground.geometry = geometry;
     original.dispose();
     ground.material.vertexColors = true;
     ground.material.needsUpdate = true;
+
+    // A colored sand pattern is painted onto the SAME vertices that dig
+    // later deforms. Retaining an immutable base palette ensures new holes
+    // change only relief/shadow, never erase the sand motif.
+    this.baseColors = new Float32Array(positions.count * 3);
+    this.patterns = [];
+    this.setColorPatches([]);
+  }
+
+  setColorPatches(patches) {
+    // Three.js vertex colors must be LINEAR RGB. Color.setHex converts the
+    // supplied sRGB hex to linear, matching the previous materials.
+    this.patterns = patches.map(({ x, z, radiusX, radiusZ, color }) => ({
+      x, z, radiusX, radiusZ, color: new THREE.Color(color),
+    }));
+    const vertices = this.ground.geometry.getAttribute('position');
+    const base = new THREE.Color(0xe7d3ac);
+    const ink = new THREE.Color();
+    for (let i = 0; i < vertices.count; i++) {
+      const x = vertices.getX(i);
+      const z = CENTER_Z - vertices.getY(i);
+      ink.copy(base);
+      for (const patch of this.patterns) {
+        const distance = Math.hypot(
+          (x - patch.x) / patch.radiusX,
+          (z - patch.z) / patch.radiusZ,
+        );
+        if (distance >= 1) continue;
+        // Preserve the original patch footprint with just a small soft
+        // transition at the edge, avoiding jagged 0.25-unit grid outlines.
+        const coverage = smoothstep((1 - distance) / 0.12);
+        ink.lerp(patch.color, coverage);
+      }
+      this.baseColors[i * 3] = ink.r;
+      this.baseColors[i * 3 + 1] = ink.g;
+      this.baseColors[i * 3 + 2] = ink.b;
+    }
+    this.rebuildGeometry();
   }
 
   /** Offset relative to the original level surface. */
@@ -132,7 +168,12 @@ export class DiggableSand {
       }
       vertices.setZ(i, height); // local +Z becomes WORLD +Y after rotation
       const shade = Math.max(0.37, 1 - darkness);
-      colors.setXYZ(i, shade, shade, shade);
+      colors.setXYZ(
+        i,
+        this.baseColors[i * 3] * shade,
+        this.baseColors[i * 3 + 1] * shade,
+        this.baseColors[i * 3 + 2] * shade,
+      );
     }
     vertices.needsUpdate = true;
     colors.needsUpdate = true;
