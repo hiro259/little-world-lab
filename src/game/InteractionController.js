@@ -4,7 +4,7 @@ import { performHeldAction, getHeldActionLabel } from './HeldActions.js';
 const PICKUP_DISTANCE = 1.65;
 const TOSS_DURATION = 0.38;
 const SWING_DURATION = 0.62;
-const LABELS = { mushroom: 'キノコ', flower: '花' };
+const LABELS = { mushroom: 'キノコ', flower: '花', clam: 'アサリ', crab: 'カニ' };
 // The right-hand grip is relative to the shoulder pivot. With the arm
 // stretched forward, local -Y points forward and local -Z points downward.
 // Each item's carry.gripHeight keeps a different length of stem below the hand.
@@ -60,6 +60,7 @@ export class InteractionController {
     const object = this.findNearest();
     if (!object) return false;
     this.held = object;
+    object.userData.isHeld = true;
     this.world.content.remove(object);
     this.player.rightArm.add(object);
     // Align the mushroom/flower stalk with the modeled fingers. Placing
@@ -92,6 +93,7 @@ export class InteractionController {
     if (!this.held) return false;
     const object = this.held;
     this.held = null;
+    object.userData.isHeld = false;
     this.swingRemaining = 0;
     this.player.rightArm.rotation.z = 0;
     this.player.rightArm.rotation.x = 0;
@@ -157,6 +159,10 @@ export class InteractionController {
       this.cameraItem.position.y += shake * 0.15;
       this.cameraItem.rotation.x = shake * 0.13;
       this.cameraItem.rotation.z = 0;
+      // Animated pickups may synchronize moving parts of their first-person
+      // display copy. The crab uses this for legs/claws, while S stays the
+      // same shared vertical shake as flowers and mushrooms.
+      this.held.userData.syncHeldPreview?.(this.cameraItem.children[0]);
     } else {
       // Walking arm swing is controlled by Player when nothing is held.
       this.cameraItem.position.copy(DEFAULT_HELD_CAMERA_POSITION);
@@ -180,9 +186,17 @@ export class InteractionController {
   }
 
   getHint() {
-    if (this.held) return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：植える　S：${getHeldActionLabel(this.held)}`;
+    if (this.held) {
+      const isBeachItem = ['crab', 'clam'].includes(this.held.userData.pickupType);
+      const verb = isBeachItem ? '離す' : '植える';
+      return `${LABELS[this.held.userData.pickupType] ?? 'アイテム'}を持っています　A：${verb}　S：${getHeldActionLabel(this.held)}`;
+    }
     const nearest = this.findNearest();
-    if (nearest) return 'A：引っこ抜く';
+    if (nearest) {
+      if (nearest.userData.pickupType === 'crab') return 'A：捕まえる';
+      if (nearest.userData.pickupType === 'clam') return 'A：拾う';
+      return 'A：引っこ抜く';
+    }
     // Stay out of the way when there is nothing close enough to pick up.
     return '';
   }
