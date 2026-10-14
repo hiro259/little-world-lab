@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { World } from '../src/world/World.js';
 import { Player } from '../src/player/Player.js';
 import { InteractionController } from '../src/game/InteractionController.js';
+import { OrbitCamera } from '../src/game/OrbitCamera.js';
 import { createFlower } from '../src/objects/Flower.js';
 import { registerHeldAction, performHeldAction } from '../src/game/HeldActions.js';
 
@@ -147,8 +148,8 @@ test('S makes both flower and mushroom bob vertically instead of swinging across
     assert.notEqual(interaction.cameraItem.position.y, cameraY, `${type} moves up/down in POV`);
     assert.equal(player.rightArm.rotation.z, 0, `${type} arm should never rotate laterally`);
     assert.equal(interaction.cameraItem.rotation.z, 0, `${type} POV item should never roll sideways`);
-    assert.ok(object.getWorldPosition(new THREE.Vector3()).x > player.group.position.x + 0.4,
-      'item stays to the side of the face');
+    assert.ok(object.getWorldPosition(new THREE.Vector3()).x < player.group.position.x - 0.4,
+      'item stays on the anatomical right side (-X) of the +Z-facing avatar');
     assert.ok(Math.abs(player.rightArm.rotation.x + Math.PI / 2) <= 0.17,
       'the arm keeps pointing forward during vertical shakes');
 
@@ -190,7 +191,7 @@ test('POV preview stays upright, faces the camera, and uses a fitting size for e
 });
 
 test('flowers and mushrooms have a hand-sized grip instead of sharing a floating root position', () => {
-  const localHandGrip = new THREE.Vector3(0.12, -0.45, 0);
+  const localHandGrip = new THREE.Vector3(-0.12, -0.45, 0);
   const gripPoints = [];
   for (const type of ['Flower', 'Mushroom']) {
     const { world, player, interaction } = setup();
@@ -278,7 +279,7 @@ test('A extends the right arm straight ahead and keeps the object in the hand wh
     const heldWorld = object.getWorldPosition(new THREE.Vector3());
     const playerWorld = player.group.getWorldPosition(new THREE.Vector3());
     const direction = heldWorld.clone().sub(playerWorld);
-    const characterRight = new THREE.Vector3(1, 0, 0)
+    const characterRight = new THREE.Vector3(-1, 0, 0)
       .applyQuaternion(player.avatar.getWorldQuaternion(new THREE.Quaternion()));
     assert.ok(direction.dot(characterForward) > 0.4, 'held item is ahead of the character');
     assert.ok(direction.dot(characterRight) > 0.4, 'held item stays beside the right hand');
@@ -294,5 +295,53 @@ test('A extends the right arm straight ahead and keeps the object in the hand wh
 
     assert.equal(interaction.plant(), true);
     assert.equal(player.rightArm.rotation.x, 0, 'placing the object releases the forward arm pose');
+  }
+});
+
+test('the held item stays screen-right in POV and in a camera view behind the character', () => {
+  const localRight = new THREE.Vector3(-1, 0, 0);
+  const localFront = new THREE.Vector3(0, 0, 1);
+
+  for (const type of ['Flower', 'Mushroom']) {
+    for (const heading of [0, Math.PI * 0.4, Math.PI, -1.2]) {
+      const { world, player, camera, interaction } = setup();
+      const object = world.content.children.find((item) => item.name === type);
+      player.group.position.copy(object.position);
+      player.setFacing(heading);
+      assert.equal(interaction.interact(), true);
+      interaction.update(0.016, false);
+
+      const playerRight = localRight.clone().applyQuaternion(player.avatar.quaternion);
+      const playerFront = localFront.clone().applyQuaternion(player.avatar.quaternion);
+      const playerCenter = player.group.position.clone();
+      const heldPoint = object.getWorldPosition(new THREE.Vector3());
+      assert.ok(heldPoint.clone().sub(playerCenter).dot(playerRight) > 0.4,
+        `${type} yaw=${heading}: third-person grip must be on the character's right side`);
+
+      // A normal third-person follow view from behind shows the carried item
+      // to screen-right, even when the character has turned.
+      camera.position.copy(playerCenter).addScaledVector(playerFront, -5);
+      camera.position.y += 2.8;
+      camera.lookAt(playerCenter.clone().add(new THREE.Vector3(0, 1.1, 0)));
+      camera.updateMatrixWorld(true);
+      const screenX = heldPoint.clone().project(camera).x;
+      assert.ok(screenX > 0.05,
+        `${type} yaw=${heading}: third-person object should appear at screen-right (${screenX})`);
+
+      const pov = new OrbitCamera(camera);
+      pov.setFirstPerson(true, player.facing);
+      pov.follow(0, player.group.position);
+      camera.updateMatrixWorld(true);
+      interaction.update(0.016, true);
+      const povScreenX = interaction.cameraItem.getWorldPosition(new THREE.Vector3())
+        .project(camera).x;
+      assert.ok(povScreenX > 0.05,
+        `${type} yaw=${heading}: POV object should appear at screen-right (${povScreenX})`);
+
+      const cameraRight = new THREE.Vector3(1, 0, 0)
+        .applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+      assert.ok(cameraRight.dot(playerRight) > 0.999,
+        'the POV camera and the character agree on which direction is right');
+    }
   }
 });
