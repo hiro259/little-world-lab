@@ -61,12 +61,16 @@ export class InteractionController {
     this.player.rightArm.add(object);
     // Keep the item at the outer side of the right hand, below the face.
     object.position.copy(HELD_ITEM_POSITION);
-    object.rotation.set(0, 0, 0);
+    // The outstretched arm is pitched -90 degrees. Counter-rotate the
+    // object so its stem/cap still point UP, not back toward the face.
+    object.rotation.set(-CARRY_ARM_ANGLE, 0, 0);
     this.cameraItem.clear();
     const preview = object.clone(true);
-    // The carried object's offset is relative to the avatar's hand, not POV.
+    // Camera forward is -Z whereas avatar forward is +Z. Turn the POV
+    // copy around its vertical axis to show the player's actual view
+    // of the carried item, without flipping its top and bottom.
     preview.position.set(0, 0, 0);
-    preview.rotation.set(0, 0, 0);
+    preview.rotation.set(0, Math.PI, 0);
     preview.scale.multiplyScalar(1.9);
     this.cameraItem.add(preview);
     this.swingRemaining = 0;
@@ -134,6 +138,9 @@ export class InteractionController {
       this.player.rightArm.rotation.x = CARRY_ARM_ANGLE + shake * 0.16;
       this.player.rightArm.rotation.z = 0;
       this.held.position.copy(HELD_ITEM_POSITION);
+      // Preserve an upright object while the arm pitches vertically.
+      // Without this, the arm's -90° rotation tips flowers and mushrooms.
+      this.held.rotation.x = -this.player.rightArm.rotation.x;
 
       // POV uses the same up/down rhythm; never roll the item sideways.
       this.cameraItem.position.copy(HELD_CAMERA_POSITION);
