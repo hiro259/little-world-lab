@@ -127,7 +127,8 @@ test('the native help panel starts open and has the requested controls', () => {
   assert.match(html, /Shift＋↑ ↓/);
   assert.match(html, /Ctrl：一人称視点（POV）/);
   assert.match(html, /矢印キー：移動/);
-  assert.match(html, /A：キノコ・花を抜く/);
+  assert.match(html, /A：花・キノコを抜く／アサリを拾う／カニを捕まえる/);
+  assert.match(html, /持っているとき A：植える／離す/);
   assert.match(html, /S：持ったものを振る/);
   assert.match(html, /W・D：今後のアクション用/);
 });
